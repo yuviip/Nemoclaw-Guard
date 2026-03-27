@@ -1,0 +1,149 @@
+[
+  {
+    "name": "approve single by filename",
+    "input": {
+      "text": "approve test123",
+      "request_session": {
+        "actions": [
+          {
+            "action_id": "act_001",
+            "resource": {
+              "display": "test123",
+              "aliases": ["test123", "/tmp/test123"]
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "intent": "approve_single",
+      "scope": "single_action",
+      "action_id": "act_001"
+    }
+  },
+  {
+    "name": "deny single by filename",
+    "input": {
+      "text": "deny test123",
+      "request_session": {
+        "actions": [
+          {
+            "action_id": "act_001",
+            "resource": {
+              "display": "test123",
+              "aliases": ["test123", "/tmp/test123"]
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "intent": "deny_single",
+      "scope": "single_action",
+      "action_id": "act_001"
+    }
+  },
+  {
+    "name": "approve session all",
+    "input": {
+      "text": "approve all",
+      "request_session": {
+        "actions": [
+          {
+            "action_id": "act_001",
+            "resource": {
+              "display": "test123",
+              "aliases": ["test123", "/tmp/test123"]
+            }
+          },
+          {
+            "action_id": "act_002",
+            "resource": {
+              "display": "test456",
+              "aliases": ["test456", "/tmp/test456"]
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "intent": "approve_session",
+      "scope": "whole_session"
+    }
+  },
+  {
+    "name": "deny session all",
+    "input": {
+      "text": "deny all",
+      "request_session": {
+        "actions": [
+          {
+            "action_id": "act_001",
+            "resource": {
+              "display": "test123",
+              "aliases": ["test123", "/tmp/test123"]
+            }
+          },
+          {
+            "action_id": "act_002",
+            "resource": {
+              "display": "test456",
+              "aliases": ["test456", "/tmp/test456"]
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "intent": "deny_session",
+      "scope": "whole_session"
+    }
+  },
+  {
+    "name": "ambiguous same basename",
+    "input": {
+      "text": "approve test123",
+      "request_session": {
+        "actions": [
+          {
+            "action_id": "act_001",
+            "resource": {
+              "display": "test123",
+              "aliases": ["test123", "/tmp/a/test123"]
+            }
+          },
+          {
+            "action_id": "act_002",
+            "resource": {
+              "display": "test123",
+              "aliases": ["test123", "/tmp/b/test123"]
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "intent": "ambiguous"
+    }
+  },
+  {
+    "name": "no polarity no match",
+    "input": {
+      "text": "test123",
+      "request_session": {
+        "actions": [
+          {
+            "action_id": "act_001",
+            "resource": {
+              "display": "test123",
+              "aliases": ["test123", "/tmp/test123"]
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "intent": "no_match"
+    }
+  }
+]

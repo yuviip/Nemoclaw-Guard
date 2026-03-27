@@ -1,0 +1,125 @@
+[
+  {
+    "name": "approve single by filename",
+    "input": {
+      "text": "approve test123",
+      "request_session": {
+        "actions": [
+          {
+            "action_id": "act_001",
+            "family": "file.delete",
+            "resource": {
+              "display": "test123",
+              "aliases": ["test123", "/tmp/test123"]
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "intent": "approve_single",
+      "action_id": "act_001"
+    }
+  },
+  {
+    "name": "deny single by filename",
+    "input": {
+      "text": "deny test123",
+      "request_session": {
+        "actions": [
+          {
+            "action_id": "act_001",
+            "family": "file.delete",
+            "resource": {
+              "display": "test123",
+              "aliases": ["test123", "/tmp/test123"]
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "intent": "deny_single",
+      "action_id": "act_001"
+    }
+  },
+  {
+    "name": "approve session all",
+    "input": {
+      "text": "approve all",
+      "request_session": {
+        "actions": [
+          {
+            "action_id": "act_001",
+            "family": "file.delete",
+            "resource": {
+              "display": "test123",
+              "aliases": ["test123", "/tmp/test123"]
+            }
+          },
+          {
+            "action_id": "act_002",
+            "family": "file.delete",
+            "resource": {
+              "display": "test456",
+              "aliases": ["test456", "/tmp/test456"]
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "intent": "approve_session"
+    }
+  },
+  {
+    "name": "ambiguous same basename",
+    "input": {
+      "text": "approve test123",
+      "request_session": {
+        "actions": [
+          {
+            "action_id": "act_001",
+            "family": "file.delete",
+            "resource": {
+              "display": "test123",
+              "aliases": ["test123", "/tmp/a/test123"]
+            }
+          },
+          {
+            "action_id": "act_002",
+            "family": "file.delete",
+            "resource": {
+              "display": "test123",
+              "aliases": ["test123", "/tmp/b/test123"]
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "intent": "ambiguous"
+    }
+  },
+  {
+    "name": "no polarity no match",
+    "input": {
+      "text": "test123",
+      "request_session": {
+        "actions": [
+          {
+            "action_id": "act_001",
+            "family": "file.delete",
+            "resource": {
+              "display": "test123",
+              "aliases": ["test123", "/tmp/test123"]
+            }
+          }
+        ]
+      }
+    },
+    "expected": {
+      "intent": "no_match"
+    }
+  }
+]

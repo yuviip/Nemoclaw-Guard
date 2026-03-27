@@ -1,24 +1,84 @@
 # Nemoclaw Guard
 
-Nemoclaw Guard is an OpenClaw guardrail plugin focused on intercepting risky actions, creating approval checkpoints, and preserving safe operator control over destructive flows.
+Nemoclaw Guard is a guardrail and approval framework for risky agent actions.
 
-## Current status
+It currently includes:
+- an OpenClaw plugin integration layer
+- approval intent resolvers
+- approval-session runtime bridges
+- guarded wrappers and runtime entrypoints
+- imported architecture and policy documentation
 
-The repository currently contains the working plugin source captured from the live environment and the documentation imported from the container-side project directory.
+The project started from a live OpenClaw-integrated implementation and is now being reorganized into a clean open-source repository.
 
-The currently implemented vertical slice focuses on dangerous `exec`-based file deletion flows triggered through OpenClaw.
+## Current repository scope
 
-## What works now
+This repository now contains four major layers:
 
-Current validated behavior includes:
+### 1. OpenClaw integration layer
+Tracked under:
+
+- `plugin/`
+
+This layer observes agent/session/tool events inside OpenClaw and is responsible for intercepting risky tool usage in the current integrated flow.
+
+### 2. Resolver layer
+Tracked under:
+
+- `resolver/`
+
+This layer is responsible for classifying approval replies into structured intents such as:
+
+- approve single
+- deny single
+- approve session
+- deny session
+- ambiguous
+- no match
+
+The intent classification is designed to live in Nemoclaw Guard rather than be hard-coded in OpenClaw-specific logic.
+
+### 3. Runtime layer
+Tracked under:
+
+- `runtime/`
+
+This layer contains:
+- approval session creation
+- approval session storage
+- resolver bridge
+- apply bridge
+- execution bridge
+- runtime guarded shell entrypoints
+- shim installation helpers
+
+### 4. Wrapper layer
+Tracked under:
+
+- `wrappers/`
+
+This layer contains:
+- reference wrappers
+- refactored wrappers
+- shared wrapper helper logic
+
+## Current validated slice
+
+The currently validated OpenClaw-connected slice is:
 
 - inbound WhatsApp message correlation to the active main agent session
-- stable conversation/session binding using conversation-key-based linkage
-- state persistence for inbound/session/run/approval tracking
-- dangerous `exec` detection inside `before_tool_call`
-- approval creation on the real dangerous `exec` action
+- conversation/session binding
+- dangerous `exec` detection in the plugin `before_tool_call`
+- approval creation on the real dangerous `exec`
 - blocking of dangerous `exec` before execution
-- preservation of pending approval records in plugin state
+- state persistence for inbound/session/run/approval tracking
+
+In parallel, the repository also contains a broader Nemoclaw Guard runtime for:
+- approval session creation
+- reply resolution
+- approval application
+- approved file-delete execution
+- reusable guarded wrappers
 
 ## Current live runtime paths
 
@@ -30,70 +90,52 @@ Live plugin state path inside the OpenClaw container:
 
 - `/home/node/.openclaw/workspace/.openclaw/nemoclaw-guard/state.json`
 
-Repository source path:
+Live Nemoclaw Guard runtime path in CT110:
 
-- `plugin/index.js`
+- `/opt/nemoclaw-guard`
 
-Repository state example:
+OpenClaw shim wrapper path currently used in integration:
 
-- `state/state.example.json`
+- `/opt/openclaw/bin/guarded_file_delete.sh`
 
 ## Repository structure
 
-- `plugin/` — live plugin source tracked in this repository
-- `state/` — example state payloads and future state-related utilities
-- `docs/` — architecture, approval-flow, policy, testing, and investigation docs
-- `docs/history/` — archived/imported historical materials kept for reference
+- `plugin/` — OpenClaw plugin integration layer
+- `resolver/` — approval reply intent resolvers, tests, and fixtures
+- `runtime/` — approval session runtime, execution bridges, and install helpers
+- `wrappers/` — reference and refactored guarded wrappers
+- `docs/` — architecture, approval-flow, testing, policy, and investigation docs
+- `state/` — example state payloads and future state-related assets
+- `cli/` — future dedicated Nemoclaw Guard CLI
+- `scripts/` — future maintenance and ops helpers
+- `tools/patch/` — future patch/import helpers
+- `docs/history/` — archived historical/imported materials
 
-## Main implemented runtime model
+## What is still in progress
 
-Today the plugin is centered around:
+Important items still not finished:
 
-1. receiving inbound user messages
-2. binding inbound conversation context to the active agent session
-3. observing tool calls in `before_tool_call`
-4. marking dangerous `exec` actions
-5. creating approval records for destructive execution attempts
-6. blocking execution until explicit approval resolution is implemented
+- connect the OpenClaw plugin layer cleanly to the runtime resolver/apply/execute flow
+- remove or replace legacy approval interception logic in `plugin/index.js`
+- finish approval-resolution UX for natural approve/deny/approve-all/target-specific replies
+- implement replay/resume behavior cleanly after approval
+- create a polished dedicated CLI
+- create install/uninstall/enable/disable/status/test lifecycle commands
+- improve open-source packaging and release readiness
+- finalize licensing
 
-## What is not finished yet
+## Project direction
 
-The repository is not yet at its final open-source packaging level.
+The direction is to keep a clear separation between:
 
-Important items still in progress:
+- **OpenClaw integration**
+- **Nemoclaw Guard core runtime**
+- **guarded wrappers**
+- **approval intent resolution**
 
-- approval resolution UX for natural replies such as approve / deny / approve all / specific target
-- replay/resume execution after approval
-- polished install / uninstall / enable / disable flow
-- dedicated Nemoclaw Guard CLI
-- packaging and lifecycle management for clean deployment
-- repository polish for public open-source release
-- test assets and repeatable validation scripts
-- final license selection
+OpenClaw-specific behavior should stay in the plugin/integration boundary.
 
-## Project goals
-
-Nemoclaw Guard is intended to become a high-quality guardrail layer for risky agent actions, with emphasis on:
-
-- robust approval interception for risky actions
-- natural-language approval and denial handling
-- safe replay/execution after approval
-- clean open-source packaging
-- easy installation and removal
-- strong operator visibility and auditability
-- dedicated CLI for managing the plugin lifecycle
-
-## Planned CLI
-
-The intended CLI surface includes commands such as:
-
-- `nemoclaw-guard install`
-- `nemoclaw-guard uninstall`
-- `nemoclaw-guard enable`
-- `nemoclaw-guard disable`
-- `nemoclaw-guard status`
-- `nemoclaw-guard paths`
-- `nemoclaw-guard test`
+Approval interpretation, state transitions, and guarded execution should live in Nemoclaw Guard itself.
 
 ## Documentation
 
@@ -109,8 +151,14 @@ Important docs:
 - `docs/approval_sessions_runtime_flow.md`
 - `docs/approval_resolution_contract.md`
 
-## Open-source direction
+## Planned CLI
 
-This repository is being reorganized into a clean, public-quality project layout.
+The intended CLI surface includes commands such as:
 
-The current priority is to preserve the working plugin logic, document the real runtime behavior accurately, and then build a polished install/control surface around it without losing the validated guard behavior already achieved.
+- `nemoclaw-guard install`
+- `nemoclaw-guard uninstall`
+- `nemoclaw-guard enable`
+- `nemoclaw-guard disable`
+- `nemoclaw-guard status`
+- `nemoclaw-guard paths`
+- `nemoclaw-guard test`

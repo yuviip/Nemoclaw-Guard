@@ -1,162 +1,266 @@
 # Nemoclaw Guard Architecture
 
-Nemoclaw Guard implements a lightweight guardrail layer for agent-driven systems.
+Nemoclaw Guard is a guardrail and approval framework for risky agent actions.
 
-The architecture separates **capabilities**, **policy**, and **execution**, allowing automation agents to operate safely without embedding security logic inside the agent itself.
+The repository currently contains both:
 
-Core model:
+1. an **OpenClaw integration layer**
+2. a broader **Nemoclaw Guard core runtime**
 
-Agent → Guarded Wrapper → Policy Engine → Decision → Action
-
----
-
-## Architectural Goals
-
-The system is designed around several core principles:
-
-- agent-agnostic execution
-- minimal runtime overhead
-- deterministic policy decisions
-- human-readable configuration
-- minimal LLM involvement
-- extensible capability model
-
-Nemoclaw Guard is intentionally simple so it can operate in:
-
-- AI agent runtimes
-- DevOps tooling
-- automation frameworks
-- CI/CD pipelines
-- self-hosted infrastructure
-- home automation environments
+These must be treated as separate architectural layers.
 
 ---
 
-## Core Components
+## High-level model
 
-### Agent
+Current target model:
 
-An AI agent or automation system that wants to perform an action.
-
-Examples:
-
-- OpenClaw
-- NVIDIA NemoClaw
-- other LLM-driven agents
-- CLI automation scripts
-- DevOps pipelines
-
-Agents **never execute system actions directly**.
-
-Instead they call guarded wrappers.
+User / Operator  
+↓  
+Agent runtime (for example OpenClaw)  
+↓  
+OpenClaw integration layer (`plugin/`)  
+↓  
+Nemoclaw Guard runtime (`resolver/` + `runtime/` + `wrappers/`)  
+↓  
+Guarded system action
 
 ---
 
-### Guarded Wrappers
+## Main architectural layers
 
-Wrappers are small scripts that perform two tasks:
+## 1. OpenClaw integration layer
 
-1. Build a policy request
-2. Enforce the policy decision
+Location:
 
-Example wrapper:
+- `plugin/index.js`
 
-guarded_git_push.sh
+Purpose:
 
-Wrappers translate a real system operation into a **policy request**.
+- observe inbound messages
+- correlate inbound conversation context to active agent sessions
+- observe tool calls
+- intercept dangerous tool usage in the current OpenClaw-connected flow
+- maintain plugin-side state for session linkage and pending approvals
 
-Example request:
+This layer is integration-specific.
 
-action: git_push  
-resource: repo_name:origin:main  
-risk: high  
+It should contain only the logic required to:
+- bind OpenClaw runtime events
+- route relevant approval-related activity into Nemoclaw Guard core
+- preserve auditability and visibility in the OpenClaw environment
 
----
-
-### Policy Engine
-
-The policy engine evaluates whether an action is allowed.
-
-Inputs:
-
-- requester identity
-- requester role
-- action
-- resource
-- risk level
-
-Possible outcomes:
-
-ALLOW  
-DENY  
-REQUIRE_OWNER_CONFIRMATION  
-REQUIRE_OWNER_APPROVAL  
-
-Only ALLOW results in execution.
+It should **not** be the long-term home of approval-language parsing or family-specific execution logic.
 
 ---
 
-### Skills
+## 2. Resolver layer
 
-Skills define what capabilities exist in the system.
+Location:
 
-Each skill declares:
+- `resolver/`
 
-- action
-- resource type
-- expected parameters
-- default risk
+Purpose:
 
-Examples:
+- classify approval replies into structured intents
+- avoid hard-coding one language or one exact phrasing in the OpenClaw plugin
+- support both action-specific and session-wide approval/deny decisions
 
-ha_control  
-git_push  
-delete_files  
+Examples of outputs:
 
-Skills allow the system to remain **extensible without modifying core logic**.
+- `approve_single`
+- `deny_single`
+- `approve_session`
+- `deny_session`
+- `ambiguous`
+- `no_match`
 
----
-
-### Policy Configuration
-
-Policies are defined in configuration files.
-
-users.yml  
-permissions.yml  
-
-These define:
-
-- identities
-- roles
-- rule sets
-- resource restrictions
-- risk escalation rules
-
-Policies are designed to remain:
-
-- human-readable
-- auditable
-- version controllable
+This layer should stay:
+- generic
+- cheap
+- deterministic-first
+- integration-agnostic
 
 ---
 
-## Token Efficiency
+## 3. Runtime layer
 
-Nemoclaw Guard minimizes LLM usage.
+Location:
 
-Most policy decisions are evaluated locally.
+- `runtime/`
 
-Blocked operations consume **zero tokens**.
+Purpose:
 
-Even when used in LLM-driven environments, Nemoclaw Guard prevents unnecessary model calls.
+- create approval sessions
+- persist approval sessions
+- resolve replies against stored session context
+- apply approval decisions to session actions
+- execute approved actions where relevant
+- install or manage integration shims
+
+Current runtime state/action components include:
+
+- approval session store
+- session create bridge
+- resolve bridge
+- apply bridge
+- execution bridge
+- runtime guarded wrapper entrypoints
+- OpenClaw shim installer
+
+This is the core orchestration layer for approval lifecycle behavior.
 
 ---
 
-## Integration with NemoClaw
+## 4. Wrapper layer
 
-Nemoclaw Guard complements NVIDIA NemoClaw by providing a safety layer around agent-driven execution.
+Location:
 
-NemoClaw provides execution capabilities.
+- `wrappers/`
 
-Nemoclaw Guard provides **policy enforcement and guardrails**.
+Purpose:
 
+- provide reusable guarded wrappers
+- separate reference implementations from more refactored/commonized versions
+- encapsulate policy checks and execution boundaries
+
+Sub-areas:
+
+- `wrappers/reference/`
+- `wrappers/refactored/`
+- `wrappers/lib/`
+
+The wrapper layer is where risky actions are turned into:
+- policy decisions
+- approval requests
+- controlled execution
+
+---
+
+## Current validated implementation slice
+
+The currently validated live slice is focused on dangerous file deletion through OpenClaw.
+
+Validated behavior includes:
+
+- inbound WhatsApp message capture
+- fallback/session correlation into the active main agent session
+- dangerous `exec` detection in `plugin/index.js`
+- approval creation on the real dangerous `exec`
+- blocking of dangerous execution before it runs
+- persistence of approval/session state in plugin state
+
+In parallel, the runtime layer also already contains approval-session machinery and file-delete execution helpers, but the OpenClaw integration path is not yet fully aligned to that runtime.
+
+---
+
+## Current architectural gap
+
+There is currently a gap between:
+
+### A. plugin-side interception
+and
+### B. runtime-side approval resolution/apply/execute flow
+
+The repository already contains runtime components for:
+- approval session creation
+- reply resolution
+- approval application
+- approved file-delete execution
+
+But the current OpenClaw plugin layer still contains direct interception logic that has not yet been fully refactored to delegate cleanly into the runtime flow.
+
+This is one of the most important next integration tasks.
+
+---
+
+## Boundary rule
+
+The intended boundary is:
+
+### OpenClaw integration layer should own:
+- hooks
+- session/event correlation
+- OpenClaw-specific state linkage
+- passing context into Nemoclaw Guard runtime
+
+### Nemoclaw Guard core should own:
+- approval reply interpretation
+- approval session lifecycle
+- policy-aware guarded execution
+- action-family runtime behavior
+- reusable wrapper and bridge logic
+
+This boundary is important so the project remains:
+- portable
+- testable
+- reusable beyond OpenClaw
+- easier to package as open source
+
+---
+
+## State model
+
+There are currently two important state domains:
+
+### Plugin state
+Current live path:
+
+- `/home/node/.openclaw/workspace/.openclaw/nemoclaw-guard/state.json`
+
+Used for:
+- inbound events
+- conversation/session linkage
+- active runs
+- plugin-side pending approvals
+- guard actions
+
+### Runtime approval session state
+Current runtime path in CT110:
+
+- `/home/node/.openclaw/nemoclaw/approval_sessions.json`
+
+Used for:
+- request sessions
+- actions
+- approval states
+- execution states
+
+These two state models are related but not yet fully unified.
+
+---
+
+## OpenClaw shim boundary
+
+There is also an integration shim layer currently installed in OpenClaw paths, such as:
+
+- `/opt/openclaw/bin/guarded_file_delete.sh`
+
+These shims should be treated as deployed integration entrypoints, not as the long-term source of truth.
+
+The source of truth should live in this repository under:
+
+- `runtime/bin/`
+- `wrappers/`
+- `plugin/`
+
+---
+
+## Near-term priorities
+
+1. align repository docs with the actual layered structure
+2. preserve imported runtime/resolver/wrapper assets as source of truth
+3. connect plugin approval handling to runtime resolver/apply/execute flow
+4. remove or retire legacy plugin-side approval logic once the runtime path is fully integrated
+5. build a proper install/uninstall/enable/disable/status/test CLI around the repository
+
+---
+
+## Long-term direction
+
+Nemoclaw Guard should mature into:
+
+- a reusable guardrail runtime
+- a clean integration target for OpenClaw
+- a portable approval framework for risky automation actions
+- a project with clear packaging, lifecycle tooling, and operator-grade auditability

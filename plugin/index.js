@@ -29,7 +29,8 @@ export default {
         linkedInboundBySession: {},
         activeRunBySession: {},
         pendingApprovals: {},
-        guardActionsBySession: {}
+        guardActionsBySession: {},
+        activeConversationBySession: {}
       };
     }
 
