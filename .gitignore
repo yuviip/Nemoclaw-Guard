@@ -1,0 +1,12 @@
+node_modules/
+*.log
+*.tmp
+.DS_Store
+
+# local runtime/state
+state/*.json
+!state/state.example.json
+
+# editor/system
+.idea/
+.vscode/

@@ -1,0 +1,12 @@
+{
+  "version": 5,
+  "inboundEvents": [],
+  "recentInboundByConversation": {},
+  "activeSessionByConversation": {},
+  "routeBindingByConversation": {},
+  "linkedInboundBySession": {},
+  "activeRunBySession": {},
+  "pendingApprovals": {},
+  "guardActionsBySession": {},
+  "activeConversationBySession": {}
+}
