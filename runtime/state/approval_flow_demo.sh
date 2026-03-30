@@ -3,7 +3,7 @@ set -euo pipefail
 
 CREATE_OUT="$(cat <<JSON | python3 /opt/nemoclaw-guard/runtime/state/approval_session_create.py
 {
-  "chat_id": "whatsapp:+972549305781",
+  "chat_id": "whatsapp:+972500000000",
   "family": "file.delete",
   "resource": {
     "kind": "file",

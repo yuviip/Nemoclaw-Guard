@@ -13,7 +13,7 @@ Example:
   "text": "approve delete test123",
   "request_session": {
     "request_session_id": "reqsess_xxx",
-    "chat_id": "whatsapp:+972549305781",
+    "chat_id": "whatsapp:+972500000000",
     "status": "pending",
     "actions": [
       {
