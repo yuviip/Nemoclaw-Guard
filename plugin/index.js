@@ -10,6 +10,18 @@ export default {
     const workspaceDir =
       process.env.OPENCLAW_WORKSPACE_DIR || "/home/node/.openclaw/workspace";
 
+      const nemoclawGuardRoot =
+        process.env.NEMOCLAW_GUARD_ROOT || "/opt/nemoclaw-guard";
+      const runtimeStateDir = path.join(nemoclawGuardRoot, "runtime", "state");
+      const approvalExecuteFileDeletePath = path.join(
+        runtimeStateDir,
+        "approval_execute_file_delete.py"
+      );
+      const approvalSessionCreatePath = path.join(
+        runtimeStateDir,
+        "approval_session_create.py"
+      );
+
     const stateDir = path.join(workspaceDir, ".openclaw", "nemoclaw-guard");
     const stateFile = path.join(stateDir, "state.json");
 
@@ -540,7 +552,7 @@ export default {
         if (runtimeApproval?.requestSessionId && userText) {
           try {
             const runtimeResult = runRuntimePython(
-              "/opt/nemoclaw-guard/runtime/state/approval_execute_file_delete.py",
+              approvalExecuteFileDeletePath,
               {
                 request_session_id: runtimeApproval.requestSessionId,
                 text: userText
@@ -690,7 +702,7 @@ export default {
 
                   if (targetPath) {
                     runtimeSession = runRuntimePython(
-                      "/opt/nemoclaw-guard/runtime/state/approval_session_create.py",
+                      approvalSessionCreatePath,
                       {
                         chat_id: linkedChatId,
                         family: "file.delete",
