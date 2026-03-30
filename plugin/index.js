@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 
 export default {
   id: "nemoclaw-guard",
@@ -30,7 +31,9 @@ export default {
         activeRunBySession: {},
         pendingApprovals: {},
         guardActionsBySession: {},
-        activeConversationBySession: {}
+        activeConversationBySession: {},
+        runtimeApprovalBySession: {},
+        completedRuntimeActionBySession: {}
       };
     }
 
@@ -70,6 +73,18 @@ export default {
           guardActionsBySession:
             parsed?.guardActionsBySession && typeof parsed.guardActionsBySession === "object"
               ? parsed.guardActionsBySession
+              : {},
+          activeConversationBySession:
+            parsed?.activeConversationBySession && typeof parsed.activeConversationBySession === "object"
+              ? parsed.activeConversationBySession
+              : {},
+          runtimeApprovalBySession:
+            parsed?.runtimeApprovalBySession && typeof parsed.runtimeApprovalBySession === "object"
+              ? parsed.runtimeApprovalBySession
+              : {},
+          completedRuntimeActionBySession:
+            parsed?.completedRuntimeActionBySession && typeof parsed.completedRuntimeActionBySession === "object"
+              ? parsed.completedRuntimeActionBySession
               : {}
         };
       } catch (err) {
@@ -133,6 +148,7 @@ export default {
         sessionKey: data.sessionKey ?? null,
         conversationKey: data.conversationKey ?? null,
         paramsPreview: data.paramsPreview ?? null,
+          runtimeRequestSessionId: data.runtimeRequestSessionId ?? null,
         createdAt: nowIso(),
         status: "pending"
       };
@@ -156,9 +172,143 @@ export default {
       delete state.guardActionsBySession[sessionKey];
     }
 
+    function setRuntimeApprovalForSession(state, sessionKey, data) {
+      if (!sessionKey) return;
+      state.runtimeApprovalBySession = state.runtimeApprovalBySession || {};
+      state.runtimeApprovalBySession[sessionKey] = {
+        requestSessionId: data?.requestSessionId ?? null,
+        family: data?.family ?? null,
+        target: data?.target ?? null,
+        createdAt: nowIso()
+      };
+    }
+
+    function clearRuntimeApprovalForSession(state, sessionKey) {
+      if (!sessionKey || !state.runtimeApprovalBySession) return;
+      delete state.runtimeApprovalBySession[sessionKey];
+    }
+
+    function getRuntimeApprovalForSession(state, sessionKey) {
+      if (!sessionKey) return null;
+      return state.runtimeApprovalBySession?.[sessionKey] ?? null;
+    }
+
+    function setCompletedRuntimeActionForSession(state, sessionKey, data) {
+      if (!sessionKey) return;
+      state.completedRuntimeActionBySession = state.completedRuntimeActionBySession || {};
+      state.completedRuntimeActionBySession[sessionKey] = {
+        family: data?.family ?? null,
+        target: data?.target ?? null,
+        requestSessionId: data?.requestSessionId ?? null,
+        completedAt: nowIso()
+      };
+    }
+
+    function getCompletedRuntimeActionForSession(state, sessionKey) {
+      if (!sessionKey) return null;
+      return state.completedRuntimeActionBySession?.[sessionKey] ?? null;
+    }
+
+    function clearCompletedRuntimeActionForSession(state, sessionKey) {
+      if (!sessionKey || !state.completedRuntimeActionBySession) return;
+      delete state.completedRuntimeActionBySession[sessionKey];
+    }
+
+    function extractUserTextFromMessage(message) {
+      if (!message || typeof message !== "object") return null;
+
+      if (typeof message.content === "string") {
+        return message.content.trim() || null;
+      }
+
+      if (Array.isArray(message.content)) {
+        const textParts = [];
+        for (const part of message.content) {
+          if (typeof part === "string") {
+            textParts.push(part);
+            continue;
+          }
+          if (part && typeof part === "object" && typeof part.text === "string") {
+            textParts.push(part.text);
+          }
+        }
+        const joined = textParts.join(" ").trim();
+        return joined || null;
+      }
+
+      return null;
+    }
+
+    function runRuntimePython(scriptPath, payload) {
+      const result = spawnSync("python3", [scriptPath], {
+        input: JSON.stringify(payload),
+        encoding: "utf8"
+      });
+
+      if (result.error) {
+        throw result.error;
+      }
+
+      if ((result.status ?? 0) !== 0) {
+        throw new Error(
+          `[nemoclaw-guard] runtime script failed: ${scriptPath} rc=${result.status ?? "null"} stderr=${result.stderr || ""}`
+        );
+      }
+
+      const stdout = (result.stdout || "").trim();
+      if (!stdout) return null;
+
+      return JSON.parse(stdout);
+    }
+
+      function normalizeApprovalReplyText(text) {
+        if (!text || typeof text !== "string") return null;
+
+        let cleaned = text.replace(/\r/g, "").trim();
+
+        cleaned = cleaned.replace(/^\[Queued messages while agent was busy\]\s*/m, "").trim();
+
+        cleaned = cleaned.replace(/Conversation info \(untrusted metadata\):\s*```json[\s\S]*?```/g, "").trim();
+        cleaned = cleaned.replace(/Sender \(untrusted metadata\):\s*```json[\s\S]*?```/g, "").trim();
+
+        const lines = cleaned
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .filter((line) => !/^Queued #\d+$/i.test(line))
+          .filter((line) => line !== "---");
+
+        cleaned = lines.join("\n").trim();
+
+        if (!cleaned) return null;
+
+        const tail = cleaned.split("\n").map((line) => line.trim()).filter(Boolean);
+        if (!tail.length) return null;
+
+        return tail[tail.length - 1] || null;
+      }
+
     function extractExecCommand(params) {
       if (!params || typeof params !== "object") return null;
       if (typeof params.command === "string") return params.command;
+      return null;
+    }
+
+    function extractGuardedFileDeleteTarget(command) {
+      if (!command || typeof command !== "string") return null;
+
+      const parts = command.trim().split(/\s+/);
+      if (!parts.length) return null;
+
+      const base = parts[0] || "";
+      if (!/guarded_file_delete\.sh$/i.test(base)) return null;
+
+      for (let i = 1; i < parts.length; i++) {
+        const part = parts[i];
+        if (!part || part.startsWith("--")) continue;
+        return part;
+      }
+
       return null;
     }
 
@@ -376,15 +526,78 @@ export default {
 
       if (!resolved.inbound) return;
 
-      bindConversationToSession(
-        state,
-        resolved.inbound.conversationKey,
-        sessionKey,
-        ctx?.agentId ?? null,
-        resolved.inbound
-      );
+        bindConversationToSession(
+          state,
+          resolved.inbound.conversationKey,
+          sessionKey,
+          ctx?.agentId ?? null,
+          resolved.inbound
+        );
 
-      writeState(state);
+        const userText = normalizeApprovalReplyText(extractUserTextFromMessage(msg));
+        const runtimeApproval = getRuntimeApprovalForSession(state, sessionKey);
+
+        if (runtimeApproval?.requestSessionId && userText) {
+          try {
+            const runtimeResult = runRuntimePython(
+              "/opt/nemoclaw-guard/runtime/state/approval_execute_file_delete.py",
+              {
+                request_session_id: runtimeApproval.requestSessionId,
+                text: userText
+              }
+            );
+
+            log({
+              type: "runtime_approval_reply_processed",
+              at: nowIso(),
+              sessionKey,
+              agentId: ctx?.agentId ?? null,
+              requestSessionId: runtimeApproval.requestSessionId,
+              userText,
+              runtimeResult
+            });
+
+            const updatedSession = runtimeResult?.updated_session ?? null;
+            const sessionStatus = updatedSession?.status ?? null;
+            const executionStatus = updatedSession?.execution_status ?? null;
+
+            for (const approval of Object.values(state.pendingApprovals || {})) {
+              if (approval?.runtimeRequestSessionId === runtimeApproval.requestSessionId) {
+                if (executionStatus === "executed") approval.status = "executed";
+                else if (sessionStatus === "approved") approval.status = "approved";
+                else if (sessionStatus === "denied") approval.status = "denied";
+              }
+            }
+
+            if (executionStatus === "executed") {
+              setCompletedRuntimeActionForSession(state, sessionKey, {
+                family: runtimeApproval?.family ?? null,
+                target: runtimeApproval?.target ?? null,
+                requestSessionId: runtimeApproval.requestSessionId
+              });
+            }
+
+            if (
+              executionStatus === "executed" ||
+              (sessionStatus && sessionStatus !== "pending" && sessionStatus !== "partial")
+            ) {
+              clearRuntimeApprovalForSession(state, sessionKey);
+              clearGuardActionForSession(state, sessionKey);
+            }
+          } catch (err) {
+            log({
+              type: "runtime_approval_reply_failed",
+              at: nowIso(),
+              sessionKey,
+              agentId: ctx?.agentId ?? null,
+              requestSessionId: runtimeApproval?.requestSessionId ?? null,
+              userText,
+              error: String(err)
+            });
+          }
+        }
+
+        writeState(state);
 
       log({
         type: "session_linked",
@@ -422,52 +635,127 @@ export default {
 
       if (toolName === "exec") {
         const command = extractExecCommand(event?.params);
+        const completedRuntimeAction = getCompletedRuntimeActionForSession(state, ctx?.sessionKey ?? null);
 
-          if (isDangerousExecCommand(command)) {
-            setGuardActionForSession(state, ctx?.sessionKey ?? null, {
-              type: "exec",
-              reason: "dangerous_exec_command",
-              target: command
-            });
+        if (
+          completedRuntimeAction?.family === "file.delete" &&
+          typeof command === "string" &&
+          command.includes("guarded_file_delete.sh") &&
+          completedRuntimeAction?.target &&
+          command.includes(completedRuntimeAction.target)
+        ) {
+          log({
+            type: "duplicate_exec_after_runtime_execution_skipped",
+            at: nowIso(),
+            sessionKey: ctx?.sessionKey ?? null,
+            agentId: ctx?.agentId ?? null,
+            toolName,
+            toolCallId: ctx?.toolCallId ?? event?.toolCallId ?? null,
+            runId: ctx?.runId ?? event?.runId ?? null,
+            command,
+            completedRuntimeAction
+          });
 
-            const approvalId = registerPendingApproval(state, {
-              toolName: toolName,
-              toolCallId: ctx?.toolCallId ?? event?.toolCallId ?? null,
-              runId: ctx?.runId ?? event?.runId ?? null,
-              sessionKey: ctx?.sessionKey ?? null,
-              conversationKey:
-                state.activeConversationBySession?.[ctx?.sessionKey]?.conversationKey ?? null,
-              paramsPreview: {
-                command
-              }
-            });
-
-            writeState(state);
-
-            log({
-              type: "guard_action_marked",
-              at: nowIso(),
-              sessionKey: ctx?.sessionKey ?? null,
-              agentId: ctx?.agentId ?? null,
-              toolName,
-              toolCallId: ctx?.toolCallId ?? event?.toolCallId ?? null,
-              runId: ctx?.runId ?? event?.runId ?? null,
-              command
-            });
-
-            log({
-              type: "approval_pending",
-              at: nowIso(),
-              approvalId,
-              toolName,
-              toolCallId: ctx?.toolCallId ?? event?.toolCallId ?? null,
-              runId: ctx?.runId ?? event?.runId ?? null,
-              command
-            });
-
-            throw new Error("Nemoclaw Guard approval required: " + approvalId);
-          }
+          throw new Error("Nemoclaw Guard duplicate exec skipped after runtime execution");
         }
+
+            if (isDangerousExecCommand(command)) {
+              setGuardActionForSession(state, ctx?.sessionKey ?? null, {
+                type: "exec",
+                reason: "dangerous_exec_command",
+                target: command
+              });
+
+              const approvalId = registerPendingApproval(state, {
+                toolName: toolName,
+                toolCallId: ctx?.toolCallId ?? event?.toolCallId ?? null,
+                runId: ctx?.runId ?? event?.runId ?? null,
+                sessionKey: ctx?.sessionKey ?? null,
+                conversationKey:
+                  state.activeConversationBySession?.[ctx?.sessionKey]?.conversationKey ?? null,
+                paramsPreview: {
+                  command
+                }
+              });
+
+              let runtimeSession = null;
+              try {
+                const linkedChatId =
+                  state.activeConversationBySession?.[ctx?.sessionKey]?.conversationId ??
+                  linkedInbound?.conversationId ??
+                  null;
+
+                if (linkedChatId && command.includes("guarded_file_delete.sh")) {
+                  const targetPath = extractGuardedFileDeleteTarget(command);
+
+                  if (targetPath) {
+                    runtimeSession = runRuntimePython(
+                      "/opt/nemoclaw-guard/runtime/state/approval_session_create.py",
+                      {
+                        chat_id: linkedChatId,
+                        family: "file.delete",
+                        resource: {
+                          kind: "file",
+                          primary: targetPath,
+                          display: targetPath.split("/").pop() || targetPath,
+                          aliases: [targetPath.split("/").pop() || targetPath, targetPath]
+                        }
+                      }
+                    );
+
+                    if (runtimeSession?.request_session_id) {
+                      setRuntimeApprovalForSession(state, ctx?.sessionKey ?? null, {
+                        requestSessionId: runtimeSession.request_session_id,
+                        family: "file.delete",
+                        target: targetPath
+                      });
+                      if (approvalId && runtimeSession?.request_session_id && state.pendingApprovals?.[approvalId]) {
+                        state.pendingApprovals[approvalId].runtimeRequestSessionId = runtimeSession.request_session_id;
+                      }
+                    }
+                  }
+                }
+              } catch (err) {
+                log({
+                  type: "runtime_approval_session_create_failed",
+                  at: nowIso(),
+                  sessionKey: ctx?.sessionKey ?? null,
+                  agentId: ctx?.agentId ?? null,
+                  toolName,
+                  toolCallId: ctx?.toolCallId ?? event?.toolCallId ?? null,
+                  runId: ctx?.runId ?? event?.runId ?? null,
+                  command,
+                  error: String(err)
+                });
+              }
+
+              writeState(state);
+
+              log({
+                type: "guard_action_marked",
+                at: nowIso(),
+                sessionKey: ctx?.sessionKey ?? null,
+                agentId: ctx?.agentId ?? null,
+                toolName,
+                toolCallId: ctx?.toolCallId ?? event?.toolCallId ?? null,
+                runId: ctx?.runId ?? event?.runId ?? null,
+                command
+              });
+
+              log({
+                type: "approval_pending",
+                at: nowIso(),
+                approvalId,
+                toolName,
+                toolCallId: ctx?.toolCallId ?? event?.toolCallId ?? null,
+                runId: ctx?.runId ?? event?.runId ?? null,
+                command,
+                runtimeRequestSessionId: runtimeSession?.request_session_id ?? null
+              });
+
+              throw new Error("Nemoclaw Guard approval required: " + approvalId);
+            }
+          }
 
       if (shouldRequireApproval(event, ctx)) {
         const approvalId = registerPendingApproval(state, {

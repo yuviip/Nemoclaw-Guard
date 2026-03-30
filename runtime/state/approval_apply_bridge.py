@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 import json
 import sys
+import os
 import importlib.util
+import urllib.request
+import urllib.error
 
 STORE_MOD_PATH = "/opt/nemoclaw-guard/runtime/state/approval_session_store.py"
 RESOLVER_MOD_PATH = "/opt/nemoclaw-guard/resolver/approval_resolver_v2.py"
+OPENCLAW_ENV_PATH = "/opt/openclaw/openclaw.env"
 
 
 def load_module(name: str, path: str):
@@ -14,8 +18,69 @@ def load_module(name: str, path: str):
     return mod
 
 
+def load_openclaw_env(path: str) -> None:
+    if not os.path.isfile(path):
+        return
+    with open(path, "r", encoding="utf-8") as f:
+        for raw_line in f:
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+
 store = load_module("approval_session_store", STORE_MOD_PATH)
 resolver = load_module("approval_resolver_v2", RESOLVER_MOD_PATH)
+
+
+def resolve_via_policy_api(text: str, session: dict):
+    load_openclaw_env(OPENCLAW_ENV_PATH)
+
+    base = os.environ.get("POLICY_API_BASE", "").strip()
+    if not base:
+        return None
+
+    url = base.rstrip("/") + "/approval/resolve"
+    payload = {
+        "text": text,
+        "request_session": session
+    }
+
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            body = resp.read().decode("utf-8")
+    except urllib.error.HTTPError as e:
+        # 404/501/etc -> endpoint not ready yet, fallback locally
+        return None
+    except Exception:
+        return None
+
+    try:
+        parsed = json.loads(body)
+    except Exception:
+        return None
+
+    if isinstance(parsed, dict) and isinstance(parsed.get("resolver_result"), dict):
+        return parsed["resolver_result"]
+
+    if isinstance(parsed, dict) and isinstance(parsed.get("result"), dict):
+        return parsed["result"]
+
+    if isinstance(parsed, dict) and parsed.get("intent"):
+        return parsed
+
+    return None
 
 
 def apply_result(session: dict, resolver_result: dict) -> dict:
@@ -73,10 +138,13 @@ def main():
         }))
         return
 
-    resolver_result = resolver.resolve({
-        "text": text,
-        "request_session": session
-    })
+    resolver_result = resolve_via_policy_api(text, session)
+
+    if not resolver_result:
+        resolver_result = resolver.resolve({
+            "text": text,
+            "request_session": session
+        })
 
     updated_session = apply_result(session, resolver_result)
     recompute_session_status(updated_session)

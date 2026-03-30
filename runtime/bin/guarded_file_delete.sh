@@ -87,14 +87,15 @@ JSON
     )"
 
     SESSION_ID="$(printf "%s" "$SESSION_JSON" | python3 -c 'import sys,json; print(json.load(sys.stdin)["request_session_id"])')"
-    ACTION_ID="$(printf "%s" "$SESSION_JSON" | python3 -c 'import sys,json; print(json.load(sys.stdin)["action_id"])')"
 
     printf "{"
     printf "\"status\":\"requires_confirmation\","
     printf "\"decision\":\"REQUIRE_OWNER_CONFIRMATION\","
     printf "\"reason\":\"policy_requires_owner_confirmation\","
+    printf "\"approval_managed_by_guard\":true,"
+    printf "\"approval_reply_mode\":\"natural_language\","
+    printf "\"approval_hint\":%s," "$(printf "%s" "Reply naturally, for example: approve test123 or deny test123" | json_escape)"
     printf "\"request_session_id\":%s," "$(printf "%s" "$SESSION_ID" | json_escape)"
-    printf "\"action_id\":%s," "$(printf "%s" "$ACTION_ID" | json_escape)"
     printf "\"target_path\":%s," "$(printf "%s" "$TARGET_PATH" | json_escape)"
     printf "\"message\":%s" "$(printf "%s" "$DECISION_JSON" | json_escape)"
     printf "}\n"
