@@ -707,9 +707,7 @@ export default {
                   const targetPath = extractGuardedFileDeleteTarget(command);
 
                   if (targetPath) {
-                    runtimeSession = runRuntimePython(
-                      approvalSessionCreatePath,
-                      {
+                      runtimeSession = runApprovalSessionCreate({
                         chat_id: linkedChatId,
                         family: "file.delete",
                         resource: {
@@ -718,9 +716,7 @@ export default {
                           display: targetPath.split("/").pop() || targetPath,
                           aliases: [targetPath.split("/").pop() || targetPath, targetPath]
                         }
-                      }
-                    );
-
+                      });
                     if (runtimeSession?.request_session_id) {
                       setRuntimeApprovalForSession(state, ctx?.sessionKey ?? null, {
                         requestSessionId: runtimeSession.request_session_id,
