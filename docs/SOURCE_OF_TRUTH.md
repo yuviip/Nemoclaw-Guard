@@ -321,6 +321,25 @@ Examples:
 
 These paths are runtime deployment locations, not repository structure guidance.
 
+### Runtime path resolution note
+
+Python runtime modules now support centralized path resolution through:
+
+- `runtime/state/path_config.py`
+- `policy-runtime/path_config.py`
+
+This means the repository still documents `/opt/...` paths as current deployment defaults, but Python runtime code is no longer limited to hard-coded filesystem constants only.
+
+Current default environment-backed path controls include values such as:
+
+- `NEMOCLAW_GUARD_ROOT`
+- `NEMOCLAW_OPENCLAW_ENV_PATH`
+- `NEMOCLAW_POLICY_ROOT`
+- `NEMOCLAW_POLICY_BIN_DIR`
+- `NEMOCLAW_POLICY_CONFIG_DIR`
+
+So `/opt/...` remains the current operational default, but not the only supported path layout for Python runtime modules.
+
 ---
 
 ## Practical interpretation for contributors

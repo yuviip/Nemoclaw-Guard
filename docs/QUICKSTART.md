@@ -13,6 +13,15 @@ This quickstart does NOT require OpenClaw.
 Repository path used in this guide:
 /opt/nemoclaw-guard
 
+The paths used below are the current default runtime layout.
+
+For Python runtime modules, Nemoclaw Guard now also supports environment-driven path resolution through:
+
+- `runtime/state/path_config.py`
+- `policy-runtime/path_config.py`
+
+So the quickstart uses `/opt/...` as the default deployment example, not as the only possible filesystem layout.
+
 ----
 
 Step 1: create policy files
