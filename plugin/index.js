@@ -273,6 +273,15 @@ export default {
       return JSON.parse(stdout);
     }
 
+      function runApprovalExecuteFileDelete(payload) {
+        return runRuntimePython(approvalExecuteFileDeletePath, payload);
+      }
+
+      function runApprovalSessionCreate(payload) {
+        return runRuntimePython(approvalSessionCreatePath, payload);
+      }
+
+
       function normalizeApprovalReplyText(text) {
         if (!text || typeof text !== "string") return null;
 
@@ -551,13 +560,10 @@ export default {
 
         if (runtimeApproval?.requestSessionId && userText) {
           try {
-            const runtimeResult = runRuntimePython(
-              approvalExecuteFileDeletePath,
-              {
+            const runtimeResult = runApprovalExecuteFileDelete({
                 request_session_id: runtimeApproval.requestSessionId,
                 text: userText
-              }
-            );
+              });
 
             log({
               type: "runtime_approval_reply_processed",
