@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source "${NEMOCLAW_POLICY_SDK_PATH:-/opt/nemoclaw-guard/sdk/lib/policy_sdk.sh}"
-source /opt/nemoclaw-guard/wrappers/lib/guarded_common.sh
+source /opt/nemoclaw-guard/wrappers/lib/path_config.sh
+source "$NEMOCLAW_POLICY_SDK_PATH"
+source "$NEMOCLAW_GUARDED_COMMON_PATH"
 
 usage() {
   cat >&2 <<USAGE

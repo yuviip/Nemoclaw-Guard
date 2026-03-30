@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source /opt/openclaw-policy-sdk/lib/policy_sdk.sh
-source /opt/nemoclaw-guard/wrappers/lib/guarded_common.sh
+source /opt/nemoclaw-guard/wrappers/lib/path_config.sh
+source "$NEMOCLAW_OPENCLAW_POLICY_SDK_PATH"
+source "$NEMOCLAW_GUARDED_COMMON_PATH"
 
 usage() {
   cat >&2 <<USAGE

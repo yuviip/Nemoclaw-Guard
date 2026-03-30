@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source /opt/openclaw-policy-sdk/lib/policy_sdk.sh
+source /opt/nemoclaw-guard/wrappers/lib/path_config.sh
+source "$NEMOCLAW_OPENCLAW_POLICY_SDK_PATH"
 
 json_escape() {
   python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))'
@@ -72,7 +73,7 @@ case "$DECISION" in
     ;;
   REQUIRE_OWNER_CONFIRMATION)
     SESSION_JSON="$(
-      python3 /opt/nemoclaw-guard/runtime/state/approval_session_create.py <<JSON
+      python3 "$NEMOCLAW_APPROVAL_SESSION_CREATE_PATH" <<JSON
 {
   "chat_id": "${REQUESTER_ID}",
   "family": "file.delete",
