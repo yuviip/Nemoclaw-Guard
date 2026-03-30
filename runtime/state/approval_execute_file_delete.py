@@ -4,10 +4,14 @@ import sys
 import os
 from datetime import datetime, timezone
 import importlib.util
+from path_config import (
+    APPROVAL_SESSION_STORE_PATH,
+    APPROVAL_APPLY_BRIDGE_PATH,
+)
 
 
-STORE_MOD_PATH = "/opt/nemoclaw-guard/runtime/state/approval_session_store.py"
-APPLY_BRIDGE_PATH = "/opt/nemoclaw-guard/runtime/state/approval_apply_bridge.py"
+STORE_MOD_PATH = APPROVAL_SESSION_STORE_PATH
+APPLY_BRIDGE_PATH = APPROVAL_APPLY_BRIDGE_PATH
 
 
 def load_module(name: str, path: str):

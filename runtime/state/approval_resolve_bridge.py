@@ -2,9 +2,13 @@
 import json
 import sys
 import importlib.util
+from path_config import (
+    APPROVAL_SESSION_STORE_PATH,
+    APPROVAL_RESOLVER_V2_PATH,
+)
 
-STORE_MOD_PATH = "/opt/nemoclaw-guard/runtime/state/approval_session_store.py"
-RESOLVER_MOD_PATH = "/opt/nemoclaw-guard/resolver/approval_resolver_v2.py"
+STORE_MOD_PATH = APPROVAL_SESSION_STORE_PATH
+RESOLVER_MOD_PATH = APPROVAL_RESOLVER_V2_PATH
 
 
 def load_module(name: str, path: str):
