@@ -367,6 +367,23 @@ export default {
         };
       }
 
+      function linkRuntimeSessionToApproval(state, sessionKey, approvalId, runtimeSessionResult) {
+        const runtimeSession = runtimeSessionResult?.runtimeSession ?? null;
+        if (!runtimeSession?.request_session_id) return null;
+
+        setRuntimeApprovalForSession(state, sessionKey, {
+          requestSessionId: runtimeSession.request_session_id,
+          family: runtimeSessionResult?.family ?? null,
+          target: runtimeSessionResult?.targetPath ?? null
+        });
+
+        if (approvalId && state.pendingApprovals?.[approvalId]) {
+          state.pendingApprovals[approvalId].runtimeRequestSessionId = runtimeSession.request_session_id;
+        }
+
+        return runtimeSession;
+      }
+
       function normalizeApprovalReplyText(text) {
         if (!text || typeof text !== "string") return null;
 
@@ -742,18 +759,12 @@ export default {
                   command
                 );
 
-                runtimeSession = runtimeSessionResult?.runtimeSession ?? null;
-
-                if (runtimeSession?.request_session_id) {
-                  setRuntimeApprovalForSession(state, ctx?.sessionKey ?? null, {
-                    requestSessionId: runtimeSession.request_session_id,
-                    family: runtimeSessionResult?.family ?? null,
-                    target: runtimeSessionResult?.targetPath ?? null
-                  });
-                  if (approvalId && state.pendingApprovals?.[approvalId]) {
-                    state.pendingApprovals[approvalId].runtimeRequestSessionId = runtimeSession.request_session_id;
-                  }
-                }
+                runtimeSession = linkRuntimeSessionToApproval(
+                  state,
+                  ctx?.sessionKey ?? null,
+                  approvalId,
+                  runtimeSessionResult
+                );
               } catch (err) {
                 log({
                   type: "runtime_approval_session_create_failed",
