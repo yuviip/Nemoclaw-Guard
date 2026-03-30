@@ -341,6 +341,32 @@ export default {
         }
       }
 
+      function tryCreateRuntimeApprovalSession(linkedChatId, command) {
+        if (!linkedChatId || !command || !command.includes("guarded_file_delete.sh")) {
+          return null;
+        }
+
+        const targetPath = extractGuardedFileDeleteTarget(command);
+        if (!targetPath) return null;
+
+        const runtimeSession = runApprovalSessionCreate({
+          chat_id: linkedChatId,
+          family: "file.delete",
+          resource: {
+            kind: "file",
+            primary: targetPath,
+            display: targetPath.split("/").pop() || targetPath,
+            aliases: [targetPath.split("/").pop() || targetPath, targetPath]
+          }
+        });
+
+        return {
+          runtimeSession,
+          family: "file.delete",
+          targetPath
+        };
+      }
+
       function normalizeApprovalReplyText(text) {
         if (!text || typeof text !== "string") return null;
 
@@ -711,30 +737,21 @@ export default {
                   linkedInbound?.conversationId ??
                   null;
 
-                if (linkedChatId && command.includes("guarded_file_delete.sh")) {
-                  const targetPath = extractGuardedFileDeleteTarget(command);
+                const runtimeSessionResult = tryCreateRuntimeApprovalSession(
+                  linkedChatId,
+                  command
+                );
 
-                  if (targetPath) {
-                      runtimeSession = runApprovalSessionCreate({
-                        chat_id: linkedChatId,
-                        family: "file.delete",
-                        resource: {
-                          kind: "file",
-                          primary: targetPath,
-                          display: targetPath.split("/").pop() || targetPath,
-                          aliases: [targetPath.split("/").pop() || targetPath, targetPath]
-                        }
-                      });
-                    if (runtimeSession?.request_session_id) {
-                      setRuntimeApprovalForSession(state, ctx?.sessionKey ?? null, {
-                        requestSessionId: runtimeSession.request_session_id,
-                        family: "file.delete",
-                        target: targetPath
-                      });
-                      if (approvalId && runtimeSession?.request_session_id && state.pendingApprovals?.[approvalId]) {
-                        state.pendingApprovals[approvalId].runtimeRequestSessionId = runtimeSession.request_session_id;
-                      }
-                    }
+                runtimeSession = runtimeSessionResult?.runtimeSession ?? null;
+
+                if (runtimeSession?.request_session_id) {
+                  setRuntimeApprovalForSession(state, ctx?.sessionKey ?? null, {
+                    requestSessionId: runtimeSession.request_session_id,
+                    family: runtimeSessionResult?.family ?? null,
+                    target: runtimeSessionResult?.targetPath ?? null
+                  });
+                  if (approvalId && state.pendingApprovals?.[approvalId]) {
+                    state.pendingApprovals[approvalId].runtimeRequestSessionId = runtimeSession.request_session_id;
                   }
                 }
               } catch (err) {
