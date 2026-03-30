@@ -1,91 +1,38 @@
 # Quickstart
 
-This guide shows how to integrate Nemoclaw Guard with an agent system such as NVIDIA NemoClaw.
+This quickstart validates the runnable core of Nemoclaw Guard.
 
----
+Validated components:
+- example policy files
+- policy decision engine
+- policy API
+- approval reply resolver
 
-## Initial Setup
+This quickstart does NOT require OpenClaw.
 
-A typical setup includes:
+Repository path used in this guide:
+/opt/nemoclaw-guard
 
-1. installing NemoClaw
-2. configuring an LLM provider
-3. adding Nemoclaw Guard wrappers
-4. defining policy rules
+----
 
-Nemoclaw Guard does not require any specific infrastructure or LLM provider.
+Step 1: create policy files
+sudo mkdir -p /opt/nemoclaw/policy
+sudo cp policy/permissions.example.yml /opt/nemoclaw/policy/permissions.yml
+sudo cp policy/users.example.yml /opt/nemoclaw/policy/users.yml
 
-It works anywhere the agent can execute shell commands.
+Step 2: install runtime scripts
+sudo mkdir -p /opt/nemoclaw/bin
+sudo cp policy-runtime/* /opt/nemoclaw/bin/
+sudo chmod +x /opt/nemoclaw/bin/policy_decide.sh
 
----
+Step 3: test policy decision
+echo '{"requester_role":"agent","action":"file.delete","resource":"/tmp/test","risk_level":"high"}' | /opt/nemoclaw/bin/policy_decide.sh
 
-## Example NemoClaw Setup
+Step 4: start policy API
+python3 /opt/nemoclaw/bin/policy_api.py
 
-NemoClaw can be configured with an OpenAI provider.
+Step 5: test health endpoint
+curl http://127.0.0.1:8001/health
 
-Example environment variables:
-
-OPENAI_API_KEY=your_key
-OPENAI_MODEL=gpt-4o-mini
-
-Nemoclaw Guard operates independently of the LLM provider.
-
----
-
-## Provider Flexibility
-
-Nemoclaw Guard is **LLM-provider agnostic**.
-
-It works with:
-
-OpenAI  
-Anthropic  
-Gemini  
-local LLM models  
-self-hosted inference servers  
-
-The policy engine itself does **not depend on any LLM**.
-
----
-
-## Minimal Token Usage
-
-Nemoclaw Guard minimizes token usage by design.
-
-Policy evaluation happens locally.
-
-This means:
-
-- blocked operations consume zero tokens
-- allowed operations do not require LLM reasoning
-- only minimal context may be sent when needed
-
-This significantly reduces cost and latency.
-
----
-
-## Example Workflow
-
-Agent request:
-
-guarded_git_push.sh user role repo origin main
-
-Wrapper flow:
-
-1. build resource
-2. evaluate policy
-3. execute only if allowed
-
----
-
-## Extending the System
-
-New wrappers can be added for:
-
-docker  
-kubernetes  
-systemctl  
-file management  
-external APIs  
-
-Nemoclaw Guard acts as the **policy gate** for these operations.
+Step 6: test approval resolver
+curl http://127.0.0.1:8001/approval/resolve -H 'Content-Type: application/json' -d '{"text":"approve test","request_session":{"request_session_id":"req_demo","chat_id":"whatsapp:+972500000000","status":"pending","actions":[{"action_id":"act1","approval_state":"pending"}]}}'
