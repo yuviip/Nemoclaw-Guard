@@ -1,6 +1,5 @@
 #!/opt/nemoclaw/.venv/bin/python3
 import json
-import re
 import sys
 from typing import Any, Dict, List
 
@@ -25,7 +24,6 @@ def extract_aliases(action: Dict[str, Any]) -> List[str]:
     for x in [r.get("display"), r.get("primary")] + list(r.get("aliases") or []):
         if isinstance(x, str) and x.strip():
             vals.append(norm(x))
-    # unique, stable
     out = []
     seen = set()
     for v in vals:
@@ -101,7 +99,6 @@ def deterministic_resolve(text: str, session: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def call_nemo_llm(text: str, session: Dict[str, Any]) -> Dict[str, Any]:
-    # additive helper only; if anything goes wrong we fallback safely
     import os
     import subprocess
 
@@ -118,13 +115,14 @@ def call_nemo_llm(text: str, session: Dict[str, Any]) -> Dict[str, Any]:
             f"- action_id={rid}; aliases={aliases}; approval_state={a.get('approval_state', 'pending')}"
         )
 
-    prompt = f"""
+    prompt = """
 You are an approval intent resolver for Nemoclaw Guard.
 
-Your task:
-Given a user's natural-language reply and a request session with one or more pending actions,
-return ONLY a JSON object with one of these intents:
+Given:
+1. a user message
+2. a request session with one or more pending approval actions
 
+Return ONLY valid JSON with exactly one intent:
 - approve_single
 - deny_single
 - approve_session
@@ -132,32 +130,33 @@ return ONLY a JSON object with one of these intents:
 - ambiguous
 - no_match
 
-Rules:
-1. If the user clearly approves all pending actions -> approve_session
-2. If the user clearly denies all pending actions -> deny_session
-3. If the user clearly approves one specific action -> approve_single with action_id
-4. If the user clearly denies one specific action -> deny_single with action_id
-5. If the user intent is unclear -> ambiguous or no_match
-6. Return valid JSON only. No markdown. No explanation.
+Critical rules:
+1. Only classify approve/deny when the message is clearly an approval reply to a pending request.
+2. If the message is a fresh operational request, a restatement of the original request, or an instruction to perform the action itself, return {"intent":"no_match"}.
+3. Mentioning the file/resource/action is not enough by itself to count as approval.
+4. Imperative requests like "delete the file", "remove it", "do it", "please execute" are fresh requests, not approvals.
+5. If there is exactly one pending action and the message is clearly approving, you may return approve_single for that action_id.
+6. If there is exactly one pending action and the message is clearly denying, you may return deny_single for that action_id.
 7. Do not invent action_ids.
-8. Prefer exact action match when aliases or file names match the text.
-9. If there is exactly one action in the session and the user's reply is clearly positive/negative,
-   you may map it to approve_single/deny_single for that action.
+8. No markdown. No explanation. JSON only.
 
 User text:
-{text}
+__USER_TEXT__
 
 Pending actions:
-{chr(10).join(action_lines) if action_lines else "- none"}
+__ACTIONS__
 
-Return format examples:
-{{"intent":"approve_session"}}
-{{"intent":"deny_session"}}
-{{"intent":"approve_single","action_id":"act_123"}}
-{{"intent":"deny_single","action_id":"act_123"}}
-{{"intent":"ambiguous"}}
-{{"intent":"no_match"}}
+Examples:
+{"intent":"approve_session"}
+{"intent":"deny_session"}
+{"intent":"approve_single","action_id":"act_123"}
+{"intent":"deny_single","action_id":"act_123"}
+{"intent":"ambiguous"}
+{"intent":"no_match"}
 """.strip()
+
+    prompt = prompt.replace("__USER_TEXT__", text)
+    prompt = prompt.replace("__ACTIONS__", "\n".join(action_lines) if action_lines else "- none")
 
     payload = {
         "model": nemo_model,
@@ -187,14 +186,12 @@ Return format examples:
     if intent not in VALID_INTENTS:
         raise ValueError("invalid_intent")
 
-    out = {"ok": True, **parsed, "resolver": "llm"}
-    return out
+    return {"ok": True, **parsed, "resolver": "llm"}
 
 
 def resolve(text: str, session: Dict[str, Any]) -> Dict[str, Any]:
     try:
-        llm_result = call_nemo_llm(text, session)
-        return llm_result
+        return call_nemo_llm(text, session)
     except Exception:
         return deterministic_resolve(text, session)
 
