@@ -296,6 +296,21 @@ export default {
         }
       }
 
+      function finalizeRuntimeApprovalLifecycle(
+        state,
+        sessionKey,
+        sessionStatus,
+        executionStatus
+      ) {
+        if (
+          executionStatus === "executed" ||
+          (sessionStatus && sessionStatus !== "pending" && sessionStatus !== "partial")
+        ) {
+          clearRuntimeApprovalForSession(state, sessionKey);
+          clearGuardActionForSession(state, sessionKey);
+        }
+      }
+
       function processRuntimeApprovalReply(state, sessionKey, agentId, userText) {
         const runtimeApproval = getRuntimeApprovalForSession(state, sessionKey);
         if (!runtimeApproval?.requestSessionId || !userText) return;
@@ -335,13 +350,12 @@ export default {
             });
           }
 
-          if (
-            executionStatus === "executed" ||
-            (sessionStatus && sessionStatus !== "pending" && sessionStatus !== "partial")
-          ) {
-            clearRuntimeApprovalForSession(state, sessionKey);
-            clearGuardActionForSession(state, sessionKey);
-          }
+          finalizeRuntimeApprovalLifecycle(
+            state,
+            sessionKey,
+            sessionStatus,
+            executionStatus
+          );
         } catch (err) {
           log({
             type: "runtime_approval_reply_failed",
