@@ -10,17 +10,17 @@ export default {
     const workspaceDir =
       process.env.OPENCLAW_WORKSPACE_DIR || "/home/node/.openclaw/workspace";
 
-      const nemoclawGuardRoot =
-        process.env.NEMOCLAW_GUARD_ROOT || "/opt/nemoclaw-guard";
-      const runtimeStateDir = path.join(nemoclawGuardRoot, "runtime", "state");
-      const approvalExecuteFileDeletePath = path.join(
-        runtimeStateDir,
-        "approval_execute_file_delete.py"
-      );
-      const approvalSessionCreatePath = path.join(
-        runtimeStateDir,
-        "approval_session_create.py"
-      );
+    const nemoclawGuardRoot =
+      process.env.NEMOCLAW_GUARD_ROOT || "/opt/nemoclaw-guard";
+    const runtimeStateDir = path.join(nemoclawGuardRoot, "runtime", "state");
+    const approvalExecuteFileDeletePath = path.join(
+      runtimeStateDir,
+      "approval_execute_file_delete.py"
+    );
+    const approvalSessionCreatePath = path.join(
+      runtimeStateDir,
+      "approval_session_create.py"
+    );
 
     const stateDir = path.join(workspaceDir, ".openclaw", "nemoclaw-guard");
     const stateFile = path.join(stateDir, "state.json");
@@ -462,6 +462,35 @@ export default {
         throw new Error("Nemoclaw Guard approval required: " + approvalId);
       }
 
+      function handleDuplicateRuntimeExec(state, ctx, event, toolName, command) {
+        const completedRuntimeAction = getCompletedRuntimeActionForSession(
+          state,
+          ctx?.sessionKey ?? null
+        );
+
+        if (
+          completedRuntimeAction?.family === "file.delete" &&
+          typeof command === "string" &&
+          command.includes("guarded_file_delete.sh") &&
+          completedRuntimeAction?.target &&
+          command.includes(completedRuntimeAction.target)
+        ) {
+          log({
+            type: "duplicate_exec_after_runtime_execution_skipped",
+            at: nowIso(),
+            sessionKey: ctx?.sessionKey ?? null,
+            agentId: ctx?.agentId ?? null,
+            toolName,
+            toolCallId: ctx?.toolCallId ?? event?.toolCallId ?? null,
+            runId: ctx?.runId ?? event?.runId ?? null,
+            command,
+            completedRuntimeAction
+          });
+
+          throw new Error("Nemoclaw Guard duplicate exec skipped after runtime execution");
+        }
+      }
+
       function normalizeApprovalReplyText(text) {
         if (!text || typeof text !== "string") return null;
 
@@ -782,41 +811,26 @@ export default {
 
       if (toolName === "exec") {
         const command = extractExecCommand(event?.params);
-        const completedRuntimeAction = getCompletedRuntimeActionForSession(state, ctx?.sessionKey ?? null);
 
-        if (
-          completedRuntimeAction?.family === "file.delete" &&
-          typeof command === "string" &&
-          command.includes("guarded_file_delete.sh") &&
-          completedRuntimeAction?.target &&
-          command.includes(completedRuntimeAction.target)
-        ) {
-          log({
-            type: "duplicate_exec_after_runtime_execution_skipped",
-            at: nowIso(),
-            sessionKey: ctx?.sessionKey ?? null,
-            agentId: ctx?.agentId ?? null,
+        handleDuplicateRuntimeExec(
+          state,
+          ctx,
+          event,
+          toolName,
+          command
+        );
+
+        if (isDangerousExecCommand(command)) {
+          handleDangerousExecFlow(
+            state,
+            ctx,
+            event,
+            linkedInbound,
             toolName,
-            toolCallId: ctx?.toolCallId ?? event?.toolCallId ?? null,
-            runId: ctx?.runId ?? event?.runId ?? null,
-            command,
-            completedRuntimeAction
-          });
-
-          throw new Error("Nemoclaw Guard duplicate exec skipped after runtime execution");
+            command
+          );
         }
-
-            if (isDangerousExecCommand(command)) {
-              handleDangerousExecFlow(
-                state,
-                ctx,
-                event,
-                linkedInbound,
-                toolName,
-                command
-              );
-            }
-          }
+      }
 
       if (shouldRequireApproval(event, ctx)) {
         const approvalId = registerPendingApproval(state, {
