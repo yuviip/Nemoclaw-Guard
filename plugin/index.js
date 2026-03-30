@@ -282,66 +282,6 @@ export default {
       }
 
 
-
-      function handleRuntimeApprovalReply(state, sessionKey, agentId, userText) {
-        const runtimeApproval = getRuntimeApprovalForSession(state, sessionKey);
-        if (!runtimeApproval?.requestSessionId || !userText) return;
-
-        try {
-          const runtimeResult = runApprovalExecuteFileDelete({
-            request_session_id: runtimeApproval.requestSessionId,
-            text: userText
-          });
-
-          log({
-            type: "runtime_approval_reply_processed",
-            at: nowIso(),
-            sessionKey,
-            agentId: agentId ?? null,
-            requestSessionId: runtimeApproval.requestSessionId,
-            userText,
-            runtimeResult
-          });
-
-          const updatedSession = runtimeResult?.updated_session ?? null;
-          const sessionStatus = updatedSession?.status ?? null;
-          const executionStatus = updatedSession?.execution_status ?? null;
-
-          for (const approval of Object.values(state.pendingApprovals || {})) {
-            if (approval?.runtimeRequestSessionId === runtimeApproval.requestSessionId) {
-              if (executionStatus === "executed") approval.status = "executed";
-              else if (sessionStatus === "approved") approval.status = "approved";
-              else if (sessionStatus === "denied") approval.status = "denied";
-            }
-          }
-
-          if (executionStatus === "executed") {
-            setCompletedRuntimeActionForSession(state, sessionKey, {
-              family: runtimeApproval?.family ?? null,
-              target: runtimeApproval?.target ?? null,
-              requestSessionId: runtimeApproval.requestSessionId
-            });
-          }
-
-          if (
-            executionStatus === "executed" ||
-            (sessionStatus && sessionStatus !== "pending" && sessionStatus !== "partial")
-          ) {
-            clearRuntimeApprovalForSession(state, sessionKey);
-            clearGuardActionForSession(state, sessionKey);
-          }
-        } catch (err) {
-          log({
-            type: "runtime_approval_reply_failed",
-            at: nowIso(),
-            sessionKey,
-            agentId: agentId ?? null,
-            requestSessionId: runtimeApproval?.requestSessionId ?? null,
-            userText,
-            error: String(err)
-          });
-        }
-      }
       function normalizeApprovalReplyText(text) {
         if (!text || typeof text !== "string") return null;
 
@@ -555,16 +495,67 @@ export default {
         conversationId: ctx?.conversationId ?? null,
         conversationKey: buildConversationKey({
           channelId: ctx?.channelId ?? null,
-          const userText = normalizeApprovalReplyText(extractUserTextFromMessage(msg));
+          accountId: ctx?.accountId ?? "default",
+          conversationId: ctx?.conversationId ?? null
+        }),
+        content: typeof event?.content === "string" ? event.content : null,
+        messageId: event?.metadata?.messageId ?? event?.messageId ?? null,
+        from: event?.from ?? null,
+        provider: event?.metadata?.provider ?? null,
+        surface: event?.metadata?.surface ?? null,
+        linkedSessionKey: null,
+        linkedAt: null
+      };
 
-          handleRuntimeApprovalReply(
-            state,
-            sessionKey,
-            ctx?.agentId ?? null,
-            userText
-          );
+      const existingBinding = state.activeSessionByConversation[inbound.conversationKey];
+      if (existingBinding?.sessionKey) {
+        inbound.linkedSessionKey = existingBinding.sessionKey;
+      }
 
-          writeState(state);
+      upsertInboundEvent(state, inbound);
+      state.recentInboundByConversation[inbound.conversationKey] = { ...inbound };
+
+      writeState(state);
+      log(inbound);
+    });
+
+    api.on("before_message_write", (event, ctx) => {
+      const state = readState();
+      const msg = event?.message;
+      const preview = messagePreview(msg);
+
+      log({
+        type: "before_message_write",
+        at: nowIso(),
+        sessionKey: ctx?.sessionKey ?? null,
+        agentId: ctx?.agentId ?? null,
+        messagePreview: preview
+      });
+
+      if (msg?.role !== "user" || !ctx?.sessionKey) return;
+
+      const sessionKey = ctx.sessionKey;
+
+      let resolved = resolveBoundInboundForSession(state, sessionKey);
+
+      if (!resolved.inbound) {
+        const fallback = resolveFallbackInbound(state);
+        if (fallback) {
+          resolved = { inbound: fallback, method: "recent_unlinked_fallback" };
+        }
+      }
+
+      if (!resolved.inbound) return;
+
+        bindConversationToSession(
+          state,
+          resolved.inbound.conversationKey,
+          sessionKey,
+          ctx?.agentId ?? null,
+          resolved.inbound
+        );
+
+        const userText = normalizeApprovalReplyText(extractUserTextFromMessage(msg));
         const runtimeApproval = getRuntimeApprovalForSession(state, sessionKey);
 
         if (runtimeApproval?.requestSessionId && userText) {
