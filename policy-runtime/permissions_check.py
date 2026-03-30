@@ -5,9 +5,14 @@ from pathlib import Path
 from fnmatch import fnmatch
 import yaml
 
+CURRENT_DIR = Path(__file__).resolve().parent
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR))
 
-PERMISSIONS_PATH = Path("/opt/nemoclaw/policy/permissions.yml")
-USERS_PATH = Path("/opt/nemoclaw/policy/users.yml")
+from path_config import PERMISSIONS_YML_PATH, USERS_YML_PATH
+
+PERMISSIONS_PATH = Path(PERMISSIONS_YML_PATH)
+USERS_PATH = Path(USERS_YML_PATH)
 
 
 VALID_EFFECTS = {

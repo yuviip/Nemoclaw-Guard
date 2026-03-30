@@ -2,10 +2,18 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 import subprocess
 import json
+import sys
+from pathlib import Path
+
+CURRENT_DIR = Path(__file__).resolve().parent
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR))
+
+from path_config import POLICY_DECIDE_PATH, APPROVAL_RESOLVE_PATH
 
 app = FastAPI()
-POLICY_CMD = ["/opt/nemoclaw/bin/policy_decide.sh"]
-APPROVAL_RESOLVE_CMD = ["/opt/nemoclaw/bin/approval_resolve.py"]
+POLICY_CMD = [POLICY_DECIDE_PATH]
+APPROVAL_RESOLVE_CMD = [APPROVAL_RESOLVE_PATH]
 
 
 def run_json_command(cmd, payload, timeout=20):
