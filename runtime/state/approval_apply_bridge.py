@@ -5,6 +5,12 @@ import os
 import importlib.util
 import urllib.request
 import urllib.error
+from pathlib import Path
+
+CURRENT_DIR = Path(__file__).resolve().parent
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR))
+
 from path_config import (
     APPROVAL_SESSION_STORE_PATH,
     APPROVAL_RESOLVER_V2_PATH,

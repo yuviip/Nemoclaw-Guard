@@ -3,6 +3,12 @@ import json
 import sys
 import uuid
 import importlib.util
+from pathlib import Path
+
+CURRENT_DIR = Path(__file__).resolve().parent
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR))
+
 from path_config import APPROVAL_SESSION_STORE_PATH
 
 STORE_MOD_PATH = APPROVAL_SESSION_STORE_PATH
