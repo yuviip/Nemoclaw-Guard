@@ -384,6 +384,84 @@ export default {
         return runtimeSession;
       }
 
+      function handleDangerousExecFlow(state, ctx, event, linkedInbound, toolName, command) {
+        setGuardActionForSession(state, ctx?.sessionKey ?? null, {
+          type: "exec",
+          reason: "dangerous_exec_command",
+          target: command
+        });
+
+        const approvalId = registerPendingApproval(state, {
+          toolName: toolName,
+          toolCallId: ctx?.toolCallId ?? event?.toolCallId ?? null,
+          runId: ctx?.runId ?? event?.runId ?? null,
+          sessionKey: ctx?.sessionKey ?? null,
+          conversationKey:
+            state.activeConversationBySession?.[ctx?.sessionKey]?.conversationKey ?? null,
+          paramsPreview: {
+            command
+          }
+        });
+
+        let runtimeSession = null;
+        try {
+          const linkedChatId =
+            state.activeConversationBySession?.[ctx?.sessionKey]?.conversationId ??
+            linkedInbound?.conversationId ??
+            null;
+
+          const runtimeSessionResult = tryCreateRuntimeApprovalSession(
+            linkedChatId,
+            command
+          );
+
+          runtimeSession = linkRuntimeSessionToApproval(
+            state,
+            ctx?.sessionKey ?? null,
+            approvalId,
+            runtimeSessionResult
+          );
+        } catch (err) {
+          log({
+            type: "runtime_approval_session_create_failed",
+            at: nowIso(),
+            sessionKey: ctx?.sessionKey ?? null,
+            agentId: ctx?.agentId ?? null,
+            toolName,
+            toolCallId: ctx?.toolCallId ?? event?.toolCallId ?? null,
+            runId: ctx?.runId ?? event?.runId ?? null,
+            command,
+            error: String(err)
+          });
+        }
+
+        writeState(state);
+
+        log({
+          type: "guard_action_marked",
+          at: nowIso(),
+          sessionKey: ctx?.sessionKey ?? null,
+          agentId: ctx?.agentId ?? null,
+          toolName,
+          toolCallId: ctx?.toolCallId ?? event?.toolCallId ?? null,
+          runId: ctx?.runId ?? event?.runId ?? null,
+          command
+        });
+
+        log({
+          type: "approval_pending",
+          at: nowIso(),
+          approvalId,
+          toolName,
+          toolCallId: ctx?.toolCallId ?? event?.toolCallId ?? null,
+          runId: ctx?.runId ?? event?.runId ?? null,
+          command,
+          runtimeRequestSessionId: runtimeSession?.request_session_id ?? null
+        });
+
+        throw new Error("Nemoclaw Guard approval required: " + approvalId);
+      }
+
       function normalizeApprovalReplyText(text) {
         if (!text || typeof text !== "string") return null;
 
@@ -729,81 +807,14 @@ export default {
         }
 
             if (isDangerousExecCommand(command)) {
-              setGuardActionForSession(state, ctx?.sessionKey ?? null, {
-                type: "exec",
-                reason: "dangerous_exec_command",
-                target: command
-              });
-
-              const approvalId = registerPendingApproval(state, {
-                toolName: toolName,
-                toolCallId: ctx?.toolCallId ?? event?.toolCallId ?? null,
-                runId: ctx?.runId ?? event?.runId ?? null,
-                sessionKey: ctx?.sessionKey ?? null,
-                conversationKey:
-                  state.activeConversationBySession?.[ctx?.sessionKey]?.conversationKey ?? null,
-                paramsPreview: {
-                  command
-                }
-              });
-
-              let runtimeSession = null;
-              try {
-                const linkedChatId =
-                  state.activeConversationBySession?.[ctx?.sessionKey]?.conversationId ??
-                  linkedInbound?.conversationId ??
-                  null;
-
-                const runtimeSessionResult = tryCreateRuntimeApprovalSession(
-                  linkedChatId,
-                  command
-                );
-
-                runtimeSession = linkRuntimeSessionToApproval(
-                  state,
-                  ctx?.sessionKey ?? null,
-                  approvalId,
-                  runtimeSessionResult
-                );
-              } catch (err) {
-                log({
-                  type: "runtime_approval_session_create_failed",
-                  at: nowIso(),
-                  sessionKey: ctx?.sessionKey ?? null,
-                  agentId: ctx?.agentId ?? null,
-                  toolName,
-                  toolCallId: ctx?.toolCallId ?? event?.toolCallId ?? null,
-                  runId: ctx?.runId ?? event?.runId ?? null,
-                  command,
-                  error: String(err)
-                });
-              }
-
-              writeState(state);
-
-              log({
-                type: "guard_action_marked",
-                at: nowIso(),
-                sessionKey: ctx?.sessionKey ?? null,
-                agentId: ctx?.agentId ?? null,
+              handleDangerousExecFlow(
+                state,
+                ctx,
+                event,
+                linkedInbound,
                 toolName,
-                toolCallId: ctx?.toolCallId ?? event?.toolCallId ?? null,
-                runId: ctx?.runId ?? event?.runId ?? null,
                 command
-              });
-
-              log({
-                type: "approval_pending",
-                at: nowIso(),
-                approvalId,
-                toolName,
-                toolCallId: ctx?.toolCallId ?? event?.toolCallId ?? null,
-                runId: ctx?.runId ?? event?.runId ?? null,
-                command,
-                runtimeRequestSessionId: runtimeSession?.request_session_id ?? null
-              });
-
-              throw new Error("Nemoclaw Guard approval required: " + approvalId);
+              );
             }
           }
 
