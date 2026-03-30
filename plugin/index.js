@@ -281,6 +281,21 @@ export default {
         return runRuntimePython(approvalSessionCreatePath, payload);
       }
 
+      function applyRuntimeApprovalStatusUpdate(
+        state,
+        runtimeApproval,
+        sessionStatus,
+        executionStatus
+      ) {
+        for (const approval of Object.values(state.pendingApprovals || {})) {
+          if (approval?.runtimeRequestSessionId === runtimeApproval.requestSessionId) {
+            if (executionStatus === "executed") approval.status = "executed";
+            else if (sessionStatus === "approved") approval.status = "approved";
+            else if (sessionStatus === "denied") approval.status = "denied";
+          }
+        }
+      }
+
       function processRuntimeApprovalReply(state, sessionKey, agentId, userText) {
         const runtimeApproval = getRuntimeApprovalForSession(state, sessionKey);
         if (!runtimeApproval?.requestSessionId || !userText) return;
@@ -305,13 +320,12 @@ export default {
           const sessionStatus = updatedSession?.status ?? null;
           const executionStatus = updatedSession?.execution_status ?? null;
 
-          for (const approval of Object.values(state.pendingApprovals || {})) {
-            if (approval?.runtimeRequestSessionId === runtimeApproval.requestSessionId) {
-              if (executionStatus === "executed") approval.status = "executed";
-              else if (sessionStatus === "approved") approval.status = "approved";
-              else if (sessionStatus === "denied") approval.status = "denied";
-            }
-          }
+          applyRuntimeApprovalStatusUpdate(
+            state,
+            runtimeApproval,
+            sessionStatus,
+            executionStatus
+          );
 
           if (executionStatus === "executed") {
             setCompletedRuntimeActionForSession(state, sessionKey, {
