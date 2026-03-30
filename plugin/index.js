@@ -281,6 +281,65 @@ export default {
         return runRuntimePython(approvalSessionCreatePath, payload);
       }
 
+      function processRuntimeApprovalReply(state, sessionKey, agentId, userText) {
+        const runtimeApproval = getRuntimeApprovalForSession(state, sessionKey);
+        if (!runtimeApproval?.requestSessionId || !userText) return;
+
+        try {
+          const runtimeResult = runApprovalExecuteFileDelete({
+            request_session_id: runtimeApproval.requestSessionId,
+            text: userText
+          });
+
+          log({
+            type: "runtime_approval_reply_processed",
+            at: nowIso(),
+            sessionKey,
+            agentId: agentId ?? null,
+            requestSessionId: runtimeApproval.requestSessionId,
+            userText,
+            runtimeResult
+          });
+
+          const updatedSession = runtimeResult?.updated_session ?? null;
+          const sessionStatus = updatedSession?.status ?? null;
+          const executionStatus = updatedSession?.execution_status ?? null;
+
+          for (const approval of Object.values(state.pendingApprovals || {})) {
+            if (approval?.runtimeRequestSessionId === runtimeApproval.requestSessionId) {
+              if (executionStatus === "executed") approval.status = "executed";
+              else if (sessionStatus === "approved") approval.status = "approved";
+              else if (sessionStatus === "denied") approval.status = "denied";
+            }
+          }
+
+          if (executionStatus === "executed") {
+            setCompletedRuntimeActionForSession(state, sessionKey, {
+              family: runtimeApproval?.family ?? null,
+              target: runtimeApproval?.target ?? null,
+              requestSessionId: runtimeApproval.requestSessionId
+            });
+          }
+
+          if (
+            executionStatus === "executed" ||
+            (sessionStatus && sessionStatus !== "pending" && sessionStatus !== "partial")
+          ) {
+            clearRuntimeApprovalForSession(state, sessionKey);
+            clearGuardActionForSession(state, sessionKey);
+          }
+        } catch (err) {
+          log({
+            type: "runtime_approval_reply_failed",
+            at: nowIso(),
+            sessionKey,
+            agentId: agentId ?? null,
+            requestSessionId: runtimeApproval?.requestSessionId ?? null,
+            userText,
+            error: String(err)
+          });
+        }
+      }
 
       function normalizeApprovalReplyText(text) {
         if (!text || typeof text !== "string") return null;
@@ -556,64 +615,13 @@ export default {
         );
 
         const userText = normalizeApprovalReplyText(extractUserTextFromMessage(msg));
-        const runtimeApproval = getRuntimeApprovalForSession(state, sessionKey);
 
-        if (runtimeApproval?.requestSessionId && userText) {
-          try {
-            const runtimeResult = runApprovalExecuteFileDelete({
-                request_session_id: runtimeApproval.requestSessionId,
-                text: userText
-              });
-
-            log({
-              type: "runtime_approval_reply_processed",
-              at: nowIso(),
-              sessionKey,
-              agentId: ctx?.agentId ?? null,
-              requestSessionId: runtimeApproval.requestSessionId,
-              userText,
-              runtimeResult
-            });
-
-            const updatedSession = runtimeResult?.updated_session ?? null;
-            const sessionStatus = updatedSession?.status ?? null;
-            const executionStatus = updatedSession?.execution_status ?? null;
-
-            for (const approval of Object.values(state.pendingApprovals || {})) {
-              if (approval?.runtimeRequestSessionId === runtimeApproval.requestSessionId) {
-                if (executionStatus === "executed") approval.status = "executed";
-                else if (sessionStatus === "approved") approval.status = "approved";
-                else if (sessionStatus === "denied") approval.status = "denied";
-              }
-            }
-
-            if (executionStatus === "executed") {
-              setCompletedRuntimeActionForSession(state, sessionKey, {
-                family: runtimeApproval?.family ?? null,
-                target: runtimeApproval?.target ?? null,
-                requestSessionId: runtimeApproval.requestSessionId
-              });
-            }
-
-            if (
-              executionStatus === "executed" ||
-              (sessionStatus && sessionStatus !== "pending" && sessionStatus !== "partial")
-            ) {
-              clearRuntimeApprovalForSession(state, sessionKey);
-              clearGuardActionForSession(state, sessionKey);
-            }
-          } catch (err) {
-            log({
-              type: "runtime_approval_reply_failed",
-              at: nowIso(),
-              sessionKey,
-              agentId: ctx?.agentId ?? null,
-              requestSessionId: runtimeApproval?.requestSessionId ?? null,
-              userText,
-              error: String(err)
-            });
-          }
-        }
+        processRuntimeApprovalReply(
+          state,
+          sessionKey,
+          ctx?.agentId ?? null,
+          userText
+        );
 
         writeState(state);
 
