@@ -1,0 +1,38 @@
+version: 1
+
+users:
+  - id: owner_main
+    display_name: Primary Owner
+    role: owner
+    aliases:
+      - owner
+      - admin
+
+  - id: openclaw_main_agent
+    display_name: OpenClaw Main Agent
+    role: agent
+    aliases:
+      - openclaw
+      - main-agent
+      - agent
+
+  - id: automation_runner
+    display_name: Automation Runner
+    role: automation
+    aliases:
+      - runner
+      - queue-runner
+      - bot
+
+roles:
+  owner:
+    description: Human owner with full authority
+
+  agent:
+    description: AI agent acting through guarded flows
+
+  automation:
+    description: Non-human automation actor
+
+  operator:
+    description: Human operator without owner bypass

@@ -1,0 +1,48 @@
+version: 1
+
+defaults:
+  unknown_user: REQUIRE_OWNER_APPROVAL
+  unknown_role: REQUIRE_OWNER_APPROVAL
+  unmatched_rule: REQUIRE_OWNER_CONFIRMATION
+
+rules:
+  - id: allow_owner_all
+    description: Owner can perform any guarded action
+    match:
+      roles: ["owner"]
+      actions: ["*"]
+      resources: ["*"]
+    decision: ALLOW
+
+  - id: require_owner_confirmation_for_file_delete
+    description: Non-owner file deletion requires owner confirmation
+    match:
+      roles: ["agent", "operator", "automation"]
+      actions: ["file.delete"]
+      resources: ["*"]
+    decision: REQUIRE_OWNER_CONFIRMATION
+
+  - id: require_owner_confirmation_for_service_control
+    description: Service control is risky and requires owner confirmation
+    match:
+      roles: ["agent", "operator", "automation"]
+      actions: ["service.restart", "service.stop", "service.start"]
+      resources: ["*"]
+    decision: REQUIRE_OWNER_CONFIRMATION
+
+  - id: require_owner_confirmation_for_docker_restart
+    description: Docker restart is risky and requires owner confirmation
+    match:
+      roles: ["agent", "operator", "automation"]
+      actions: ["docker.restart"]
+      resources: ["*"]
+    decision: REQUIRE_OWNER_CONFIRMATION
+
+  - id: deny_unknown_high_risk
+    description: Explicit deny example for unknown high-risk operations
+    match:
+      roles: ["unknown"]
+      actions: ["*"]
+      resources: ["*"]
+      risk_levels: ["high", "critical"]
+    decision: DENY
