@@ -311,6 +311,50 @@ export default {
         }
       }
 
+      function recordCompletedRuntimeAction(
+        state,
+        sessionKey,
+        runtimeApproval,
+        executionStatus
+      ) {
+        if (executionStatus === "executed") {
+          setCompletedRuntimeActionForSession(state, sessionKey, {
+            family: runtimeApproval?.family ?? null,
+            target: runtimeApproval?.target ?? null,
+            requestSessionId: runtimeApproval.requestSessionId
+          });
+        }
+      }
+
+      function applyRuntimeApprovalOutcome(
+        state,
+        sessionKey,
+        runtimeApproval,
+        sessionStatus,
+        executionStatus
+      ) {
+        applyRuntimeApprovalStatusUpdate(
+          state,
+          runtimeApproval,
+          sessionStatus,
+          executionStatus
+        );
+
+        recordCompletedRuntimeAction(
+          state,
+          sessionKey,
+          runtimeApproval,
+          executionStatus
+        );
+
+        finalizeRuntimeApprovalLifecycle(
+          state,
+          sessionKey,
+          sessionStatus,
+          executionStatus
+        );
+      }
+
       function processRuntimeApprovalReply(state, sessionKey, agentId, userText) {
         const runtimeApproval = getRuntimeApprovalForSession(state, sessionKey);
         if (!runtimeApproval?.requestSessionId || !userText) return;
@@ -335,24 +379,10 @@ export default {
           const sessionStatus = updatedSession?.status ?? null;
           const executionStatus = updatedSession?.execution_status ?? null;
 
-          applyRuntimeApprovalStatusUpdate(
-            state,
-            runtimeApproval,
-            sessionStatus,
-            executionStatus
-          );
-
-          if (executionStatus === "executed") {
-            setCompletedRuntimeActionForSession(state, sessionKey, {
-              family: runtimeApproval?.family ?? null,
-              target: runtimeApproval?.target ?? null,
-              requestSessionId: runtimeApproval.requestSessionId
-            });
-          }
-
-          finalizeRuntimeApprovalLifecycle(
+          applyRuntimeApprovalOutcome(
             state,
             sessionKey,
+            runtimeApproval,
             sessionStatus,
             executionStatus
           );
