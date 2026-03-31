@@ -287,7 +287,7 @@ export default {
     }
 
       function runApprovalExecuteFileDelete(payload) {
-        return runRuntimePython(approvalExecuteFileDeletePath, payload);
+        return runApprovalEngine("execute_file_delete", payload);
       }
 
       function runApprovalPrepareFileDelete(payload) {
