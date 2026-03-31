@@ -17,10 +17,6 @@ export default {
       runtimeStateDir,
       "approval_execute_file_delete.py"
     );
-    const approvalSessionCreatePath = path.join(
-      runtimeStateDir,
-      "approval_session_create.py"
-    );
     const approvalPrepareFileDeletePath = path.join(
       runtimeStateDir,
       "approval_prepare_file_delete.py"
@@ -283,10 +279,6 @@ export default {
 
       function runApprovalExecuteFileDelete(payload) {
         return runRuntimePython(approvalExecuteFileDeletePath, payload);
-      }
-
-      function runApprovalSessionCreate(payload) {
-        return runRuntimePython(approvalSessionCreatePath, payload);
       }
 
       function runApprovalPrepareFileDelete(payload) {
