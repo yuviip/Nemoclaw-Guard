@@ -30,6 +30,11 @@ export default {
       "approval_check_duplicate_exec.py"
     );
 
+    const approvalEnginePath = path.join(
+      runtimeStateDir,
+      "approval_engine.py"
+    );
+
     const stateDir = path.join(workspaceDir, ".openclaw", "nemoclaw-guard");
     const stateFile = path.join(stateDir, "state.json");
 
@@ -294,7 +299,14 @@ export default {
       }
 
       function runApprovalCheckDuplicateExec(payload) {
-        return runRuntimePython(approvalCheckDuplicateExecPath, payload);
+        return runApprovalEngine("check_duplicate_exec", payload);
+      }
+
+      function runApprovalEngine(action, payload) {
+        return runRuntimePython(approvalEnginePath, {
+          action,
+          payload
+        });
       }
 
       function processRuntimeApprovalReply(state, sessionKey, agentId, userText) {
