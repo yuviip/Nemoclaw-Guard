@@ -85,19 +85,18 @@ def action_prepare_file_delete(payload: dict) -> dict:
     }
 
 def action_execute_file_delete(payload: dict) -> dict:
-    if hasattr(execute_file_delete_mod, "handle_execute"):
-        return execute_file_delete_mod.handle_execute(payload)
+    import io
+    import contextlib
 
-    if hasattr(execute_file_delete_mod, "main"):
-        return {
-            "ok": False,
-            "error": "execute_file_delete_requires_refactor_for_engine_dispatch",
-        }
-
-    return {
-        "ok": False,
-        "error": "execute_file_delete_runtime_not_supported",
-    }
+    old_stdin = sys.stdin
+    sys.stdin = io.StringIO(json.dumps(payload))
+    try:
+        captured = io.StringIO()
+        with contextlib.redirect_stdout(captured):
+            execute_file_delete_mod.main()
+        return json.loads(captured.getvalue().strip())
+    finally:
+        sys.stdin = old_stdin
 
 def action_apply_runtime_outcome(payload: dict) -> dict:
     if hasattr(apply_runtime_outcome_mod, "apply_runtime_outcome"):
