@@ -21,6 +21,10 @@ export default {
       runtimeStateDir,
       "approval_session_create.py"
     );
+    const approvalPrepareFileDeletePath = path.join(
+      runtimeStateDir,
+      "approval_prepare_file_delete.py"
+    );
 
     const stateDir = path.join(workspaceDir, ".openclaw", "nemoclaw-guard");
     const stateFile = path.join(stateDir, "state.json");
@@ -281,6 +285,10 @@ export default {
         return runRuntimePython(approvalSessionCreatePath, payload);
       }
 
+      function runApprovalPrepareFileDelete(payload) {
+        return runRuntimePython(approvalPrepareFileDeletePath, payload);
+      }
+
       function applyRuntimeApprovalStatusUpdate(
         state,
         runtimeApproval,
@@ -407,21 +415,15 @@ export default {
         const targetPath = extractGuardedFileDeleteTarget(command);
         if (!targetPath) return null;
 
-        const runtimeSession = runApprovalSessionCreate({
+        const prepared = runApprovalPrepareFileDelete({
           chat_id: linkedChatId,
-          family: "file.delete",
-          resource: {
-            kind: "file",
-            primary: targetPath,
-            display: targetPath.split("/").pop() || targetPath,
-            aliases: [targetPath.split("/").pop() || targetPath, targetPath]
-          }
+          target_path: targetPath
         });
 
         return {
-          runtimeSession,
-          family: "file.delete",
-          targetPath
+          runtimeSession: prepared?.session ?? null,
+          family: prepared?.family ?? "file.delete",
+          targetPath: prepared?.target_path ?? targetPath
         };
       }
 

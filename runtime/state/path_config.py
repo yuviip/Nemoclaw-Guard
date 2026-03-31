@@ -18,6 +18,7 @@ APPROVAL_SESSION_STORE_PATH = str(Path(RUNTIME_STATE_DIR) / "approval_session_st
 APPROVAL_APPLY_BRIDGE_PATH = str(Path(RUNTIME_STATE_DIR) / "approval_apply_bridge.py")
 APPROVAL_RESOLVE_BRIDGE_PATH = str(Path(RUNTIME_STATE_DIR) / "approval_resolve_bridge.py")
 APPROVAL_SESSION_CREATE_PATH = str(Path(RUNTIME_STATE_DIR) / "approval_session_create.py")
+APPROVAL_PREPARE_FILE_DELETE_PATH = str(Path(RUNTIME_STATE_DIR) / "approval_prepare_file_delete.py")
 APPROVAL_EXECUTE_FILE_DELETE_PATH = str(Path(RUNTIME_STATE_DIR) / "approval_execute_file_delete.py")
 
 APPROVAL_RESOLVER_V1_PATH = str(Path(RESOLVER_DIR) / "approval_resolver_v1.py")
