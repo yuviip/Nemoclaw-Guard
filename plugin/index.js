@@ -295,7 +295,7 @@ export default {
       }
 
       function runApprovalApplyRuntimeOutcome(payload) {
-        return runRuntimePython(approvalApplyRuntimeOutcomePath, payload);
+        return runApprovalEngine("apply_runtime_outcome", payload);
       }
 
       function runApprovalCheckDuplicateExec(payload) {
