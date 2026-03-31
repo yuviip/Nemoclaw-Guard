@@ -87,6 +87,9 @@ The project currently consists of four main layers:
 - `EXECUTION_PROVIDER_MODEL.md`
   Intended execution-provider model for provider-based guarded execution.
 
+- `RUNTIME_EXECUTION_CONTRACT.md`
+  Intended contract between the runtime and execution providers.
+
 
 ## Approval-flow and contract docs
 
