@@ -2,6 +2,7 @@
 import json
 import sys
 import os
+import subprocess
 from datetime import datetime, timezone
 import importlib.util
 from pathlib import Path
@@ -55,6 +56,37 @@ def run_apply(request_session_id: str, text: str) -> dict:
         sys.stdin = old_stdin
 
 
+def delete_file_via_host_helper(target: str) -> tuple[str, str]:
+    helper = os.environ.get("NEMOCLAW_HOST_DELETE_HELPER", "").strip()
+    if not helper:
+        return ("failed", "host_delete_helper_not_configured")
+
+    try:
+        result = subprocess.run(
+            [helper, target],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        return ("failed", "host_delete_helper_missing")
+    except Exception as e:
+        return ("failed", f"host_delete_helper_error:{type(e).__name__}")
+
+    if result.returncode == 0:
+        return ("executed", "file_deleted_via_host_helper")
+    if result.returncode == 4:
+        return ("skipped", "target_not_found_on_host")
+    if result.returncode == 5:
+        return ("failed", "unsafe_target_rejected_by_host_helper")
+
+    stderr = (result.stderr or "").strip()
+    if stderr:
+        return ("failed", f"host_delete_helper_rc_{result.returncode}:{stderr}")
+
+    return ("failed", f"host_delete_helper_rc_{result.returncode}")
+
+
 def execute_file_delete_actions(session: dict) -> list:
     executed = []
 
@@ -75,17 +107,9 @@ def execute_file_delete_actions(session: dict) -> list:
             action["executed_at"] = now_iso()
             continue
 
-        try:
-            if os.path.exists(target):
-                os.remove(target)
-                action["execution_state"] = "executed"
-                action["execution_reason"] = "file_deleted"
-            else:
-                action["execution_state"] = "skipped"
-                action["execution_reason"] = "target_not_found"
-        except Exception as e:
-            action["execution_state"] = "failed"
-            action["execution_reason"] = f"delete_failed:{type(e).__name__}"
+        execution_state, execution_reason = delete_file_via_host_helper(target)
+        action["execution_state"] = execution_state
+        action["execution_reason"] = execution_reason
 
         action["executed_at"] = now_iso()
         executed.append({
