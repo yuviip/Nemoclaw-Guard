@@ -22,6 +22,7 @@ APPROVAL_PREPARE_FILE_DELETE_PATH = str(Path(RUNTIME_STATE_DIR) / "approval_prep
 APPROVAL_EXECUTE_FILE_DELETE_PATH = str(Path(RUNTIME_STATE_DIR) / "approval_execute_file_delete.py")
 APPROVAL_APPLY_RUNTIME_OUTCOME_PATH = str(Path(RUNTIME_STATE_DIR) / "approval_apply_runtime_outcome.py")
 APPROVAL_CHECK_DUPLICATE_EXEC_PATH = str(Path(RUNTIME_STATE_DIR) / "approval_check_duplicate_exec.py")
+APPROVAL_ENGINE_PATH = str(Path(RUNTIME_STATE_DIR) / "approval_engine.py")
 
 APPROVAL_RESOLVER_V1_PATH = str(Path(RESOLVER_DIR) / "approval_resolver_v1.py")
 APPROVAL_RESOLVER_V2_PATH = str(Path(RESOLVER_DIR) / "approval_resolver_v2.py")
