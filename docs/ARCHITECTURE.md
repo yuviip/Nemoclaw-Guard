@@ -15,14 +15,14 @@ These must be treated as separate architectural layers.
 
 Current target model:
 
-User / Operator  
-↓  
-Agent runtime (for example OpenClaw)  
-↓  
-OpenClaw integration layer (`plugin/`)  
-↓  
-Nemoclaw Guard runtime (`resolver/` + `runtime/` + `wrappers/`)  
-↓  
+User / Operator
+↓
+Agent runtime (for example OpenClaw)
+↓
+OpenClaw integration layer (`plugin/`)
+↓
+Nemoclaw Guard runtime (`resolver/` + `runtime/` + `wrappers/`)
+↓
 Guarded system action
 
 ---

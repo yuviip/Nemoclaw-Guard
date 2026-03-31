@@ -12,17 +12,17 @@ In addition to roles, Nemoclaw Guard evaluates **resources and risk levels**.
 
 Every request evaluated by the policy engine contains:
 
-identity  
-role  
-action  
-resource  
-risk_level  
+identity
+role
+action
+resource
+risk_level
 
 Example:
 
-action = git_push  
-resource = repo:origin:main  
-risk_level = high  
+action = git_push
+resource = repo:origin:main
+risk_level = high
 
 ---
 
@@ -32,12 +32,12 @@ Roles group users by permission level.
 
 Examples:
 
-owner  
-family  
-guest  
-operator  
-admin  
-devops  
+owner
+family
+guest
+operator
+admin
+devops
 
 Roles are defined in:
 
@@ -80,10 +80,10 @@ Example rule:
 
 Each rule defines:
 
-subject  
-action  
-resource  
-effect  
+subject
+action
+resource
+effect
 
 ---
 
@@ -91,13 +91,13 @@ effect
 
 Possible effects:
 
-ALLOW  
-DENY  
+ALLOW
+DENY
 
 The policy engine can also return:
 
-REQUIRE_OWNER_CONFIRMATION  
-REQUIRE_OWNER_APPROVAL  
+REQUIRE_OWNER_CONFIRMATION
+REQUIRE_OWNER_APPROVAL
 
 These decisions depend on risk configuration.
 
@@ -109,9 +109,9 @@ Resources are strings representing system objects.
 
 Examples:
 
-repo:origin:main  
-light.turn_on:light.kitchen  
-/tmp/example/file.txt  
+repo:origin:main
+light.turn_on:light.kitchen
+/tmp/example/file.txt
 
 Each wrapper defines its own resource format.
 

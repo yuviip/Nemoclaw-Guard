@@ -26,30 +26,30 @@ wrapper: guarded_git_push.sh
 
 ## Fields
 
-name  
+name
 The capability name.
 
-action  
+action
 The action sent to the policy engine.
 
-resource_format  
+resource_format
 Defines how resources are represented.
 
 Examples:
 
-repo:origin:main  
-light.turn_on:light.kitchen  
+repo:origin:main
+light.turn_on:light.kitchen
 
-risk_level  
+risk_level
 Default risk level.
 
 Possible values:
 
-low  
-medium  
-high  
+low
+medium
+high
 
-wrapper  
+wrapper
 The script responsible for executing the capability.
 
 ---
