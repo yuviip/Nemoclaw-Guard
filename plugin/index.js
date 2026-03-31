@@ -25,6 +25,10 @@ export default {
       runtimeStateDir,
       "approval_prepare_file_delete.py"
     );
+    const approvalApplyRuntimeOutcomePath = path.join(
+      runtimeStateDir,
+      "approval_apply_runtime_outcome.py"
+    );
 
     const stateDir = path.join(workspaceDir, ".openclaw", "nemoclaw-guard");
     const stateFile = path.join(stateDir, "state.json");
@@ -289,6 +293,10 @@ export default {
         return runRuntimePython(approvalPrepareFileDeletePath, payload);
       }
 
+      function runApprovalApplyRuntimeOutcome(payload) {
+        return runRuntimePython(approvalApplyRuntimeOutcomePath, payload);
+      }
+
       function applyRuntimeApprovalStatusUpdate(
         state,
         runtimeApproval,
@@ -387,13 +395,17 @@ export default {
           const sessionStatus = updatedSession?.status ?? null;
           const executionStatus = updatedSession?.execution_status ?? null;
 
-          applyRuntimeApprovalOutcome(
+          const result = runApprovalApplyRuntimeOutcome({
             state,
-            sessionKey,
-            runtimeApproval,
-            sessionStatus,
-            executionStatus
-          );
+            session_key: sessionKey,
+            runtime_approval: runtimeApproval,
+            session_status: sessionStatus,
+            execution_status: executionStatus
+          });
+
+          if (result?.state) {
+            Object.assign(state, result.state);
+          }
         } catch (err) {
           log({
             type: "runtime_approval_reply_failed",
