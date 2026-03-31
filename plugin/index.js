@@ -25,6 +25,10 @@ export default {
       runtimeStateDir,
       "approval_apply_runtime_outcome.py"
     );
+    const approvalCheckDuplicateExecPath = path.join(
+      runtimeStateDir,
+      "approval_check_duplicate_exec.py"
+    );
 
     const stateDir = path.join(workspaceDir, ".openclaw", "nemoclaw-guard");
     const stateFile = path.join(stateDir, "state.json");
@@ -289,6 +293,10 @@ export default {
         return runRuntimePython(approvalApplyRuntimeOutcomePath, payload);
       }
 
+      function runApprovalCheckDuplicateExec(payload) {
+        return runRuntimePython(approvalCheckDuplicateExecPath, payload);
+      }
+
       function processRuntimeApprovalReply(state, sessionKey, agentId, userText) {
         const runtimeApproval = getRuntimeApprovalForSession(state, sessionKey);
         if (!runtimeApproval?.requestSessionId || !userText) return;
@@ -453,18 +461,14 @@ export default {
       }
 
       function handleDuplicateRuntimeExec(state, ctx, event, toolName, command) {
-        const completedRuntimeAction = getCompletedRuntimeActionForSession(
+        const result = runApprovalCheckDuplicateExec({
           state,
-          ctx?.sessionKey ?? null
-        );
+          session_key: ctx?.sessionKey ?? null,
+          command,
+          tool_name: toolName
+        });
 
-        if (
-          completedRuntimeAction?.family === "file.delete" &&
-          typeof command === "string" &&
-          command.includes("guarded_file_delete.sh") &&
-          completedRuntimeAction?.target &&
-          command.includes(completedRuntimeAction.target)
-        ) {
+        if (result?.is_duplicate) {
           log({
             type: "duplicate_exec_after_runtime_execution_skipped",
             at: nowIso(),
@@ -474,7 +478,7 @@ export default {
             toolCallId: ctx?.toolCallId ?? event?.toolCallId ?? null,
             runId: ctx?.runId ?? event?.runId ?? null,
             command,
-            completedRuntimeAction
+            completedRuntimeAction: result?.completed_runtime_action ?? null
           });
 
           throw new Error("Nemoclaw Guard duplicate exec skipped after runtime execution");
