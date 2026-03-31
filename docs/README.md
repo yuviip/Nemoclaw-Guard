@@ -81,6 +81,12 @@ The project currently consists of four main layers:
 - `ARCHITECTURE_V2_TARGET.md`
   Long-term target architecture for Nemoclaw Guard as a generic guardrails framework.
 
+- `PLUGIN_RUNTIME_BOUNDARY.md`
+  Intended boundary between agent adapters and the Nemoclaw runtime.
+
+- `EXECUTION_PROVIDER_MODEL.md`
+  Intended execution-provider model for provider-based guarded execution.
+
 
 ## Approval-flow and contract docs
 
