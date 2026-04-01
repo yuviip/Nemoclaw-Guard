@@ -530,6 +530,20 @@ export default {
       return null;
     }
 
+      function stripShellQuotes(value) {
+        if (!value || typeof value !== "string") return value;
+        const trimmed = value.trim();
+
+        if (
+          (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+          (trimmed.startsWith("'") && trimmed.endsWith("'"))
+        ) {
+          return trimmed.slice(1, -1);
+        }
+
+        return trimmed;
+      }
+
     function extractGuardedFileDeleteTarget(command) {
       if (!command || typeof command !== "string") return null;
 
@@ -542,7 +556,7 @@ export default {
       for (let i = 1; i < parts.length; i++) {
         const part = parts[i];
         if (!part || part.startsWith("--")) continue;
-        return part;
+        return stripShellQuotes(part);
       }
 
       return null;
